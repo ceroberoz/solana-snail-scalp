@@ -22,7 +22,7 @@ A conservative scalping strategy for small-capital trading on Solana. Designed f
 
 ```bash
 # Clone or download the project
-git clone https://github.com/yourusername/solana-snail-scalp.git
+git clone https://github.com/ceroberoz/solana-snail-scalp.git
 cd solana-snail-scalp
 
 # Install dependencies with uv
