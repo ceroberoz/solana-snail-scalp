@@ -28,7 +28,7 @@ def generate_sample_data(
         volatility: Price volatility per interval
         output_file: Output CSV filename
     """
-    print(f"📊 Generating {days} days of {interval_minutes}-minute price data...")
+    print(f"[DATA] Generating {days} days of {interval_minutes}-minute price data...")
 
     # Calculate total data points
     intervals_per_day = 24 * 60 // interval_minutes
@@ -108,12 +108,12 @@ def generate_sample_data(
         writer.writeheader()
         writer.writerows(data_points)
 
-    print(f"✅ Generated {len(data_points)} data points")
-    print(f"💾 Saved to: {output_file}")
+    print(f"[OK] Generated {len(data_points)} data points")
+    print(f"[SAVE] Saved to: {output_file}")
 
     # Print statistics
     prices = [d["price"] for d in data_points]
-    print(f"\n📈 Price Statistics:")
+    print(f"\n[STATS] Price Statistics:")
     print(f"   Min: ${min(prices):.2f}")
     print(f"   Max: ${max(prices):.2f}")
     print(f"   Avg: ${sum(prices) / len(prices):.2f}")

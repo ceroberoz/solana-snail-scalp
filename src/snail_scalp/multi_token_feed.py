@@ -354,7 +354,7 @@ def integrate_with_config():
     
     if best:
         token = best[0]
-        print(f"\n🎯 RECOMMENDED PAIR FOR TODAY: {token.metrics.symbol}")
+        print(f"\n[TARGET] RECOMMENDED PAIR FOR TODAY: {token.metrics.symbol}")
         print(f"   Price: ${token.metrics.price_usd}")
         print(f"   Liquidity: ${token.metrics.liquidity_usd:,.0f}")
         print(f"   24h Change: {token.metrics.change_24h:+.1f}%")
@@ -362,7 +362,7 @@ def integrate_with_config():
         
         # Adjust strategy based on risk
         if token.hype.risk_level == RiskLevel.EXTREME:
-            print("\n⚠️  EXTREME RISK - Adjusting strategy:")
+            print("\n[WARN]  EXTREME RISK - Adjusting strategy:")
             print("   • Reduce position size by 50%")
             print("   • Tighter stops (1% instead of 1.5%)")
             print("   • Quick exits - don't hold through consolidation")
@@ -377,7 +377,7 @@ if __name__ == "__main__":
     
     # Export watchlist
     filepath = feed.export_watchlist()
-    print(f"\n✅ Watchlist exported to: {filepath}")
+    print(f"\n[OK] Watchlist exported to: {filepath}")
     
     # Show integration example
     print("\n" + "="*90)

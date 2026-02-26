@@ -36,7 +36,7 @@ class DataFeed:
     ) -> Optional[PriceData]:
         """Fetch with strict rate limiting"""
         if self.daily_calls >= self.max_daily_calls:
-            print("⚠️ Daily API limit reached. Stopping.")
+            print("[WARN] Daily API limit reached. Stopping.")
             return None
 
         elapsed = time.time() - self.last_call
@@ -111,7 +111,7 @@ class SimulationDataFeed:
             raise ValueError("No data points found in log file")
 
         self.data_iterator = iter(self.data_points)
-        print(f"📊 Loaded {len(self.data_points)} data points for simulation")
+        print(f"[DATA] Loaded {len(self.data_points)} data points for simulation")
 
     async def get_price_data(
         self, session: Optional[aiohttp.ClientSession] = None, pair_address: str = ""
@@ -140,7 +140,7 @@ class SimulationDataFeed:
         self.data_iterator = iter(self.data_points)
         self.last_timestamp = None
         self.current_data = None
-        print("🔄 Simulation reset")
+        print("[RESET] Simulation reset")
 
 
 class HybridDataFeed:

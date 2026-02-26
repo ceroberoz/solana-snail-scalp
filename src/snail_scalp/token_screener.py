@@ -414,7 +414,7 @@ class TokenScreener:
         print(f"Total Tokens: {len(self.tokens)} | Qualified: {len(self.hype_scores)}")
         print("-"*80)
         
-        print(f"\n📊 TOP {top_n} BY HYPE SCORE:\n")
+        print(f"\n[DATA] TOP {top_n} BY HYPE SCORE:\n")
         print(f"{'Rank':<6}{'Symbol':<12}{'24h%':<10}{'7d%':<10}{'Vol/MCap':<12}{'Hype':<10}{'Risk':<10}{'Score'}")
         print("-"*80)
         
@@ -426,14 +426,14 @@ class TokenScreener:
                   f"{score.total_hype_score:.1f}")
         
         print("\n" + "="*80)
-        print("📈 RECOMMENDATIONS:")
+        print("[RISE] RECOMMENDATIONS:")
         print("-"*80)
         
         extreme = self.get_by_category(HypeCategory.EXTREME)
         high = self.get_by_category(HypeCategory.HIGH)
         
         if extreme:
-            print(f"\n⚠️  EXTREME HYPE ({len(extreme)} tokens):")
+            print(f"\n[WARN]  EXTREME HYPE ({len(extreme)} tokens):")
             print("   High risk of dumps. Only trade with tight stops.")
             for s in extreme[:3]:
                 print(f"   • {s.token.symbol}: +{s.token.change_24h:.1f}% (24h)")
@@ -628,4 +628,4 @@ if __name__ == "__main__":
     screener.print_summary(10)
     screener.export_report("data/hype_screening_report.json", 10)
     
-    print("\n✅ Demo complete! Check data/hype_screening_report.json for full results.")
+    print("\n[OK] Demo complete! Check data/hype_screening_report.json for full results.")

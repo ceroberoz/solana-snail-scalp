@@ -540,7 +540,7 @@ DEMO_COMMUNITY_DATA = {
 def demo():
     """Run sentiment analysis demo"""
     print("\n" + "="*70)
-    print("📊 SENTIMENT ANALYSIS DEMO")
+    print("[DATA] SENTIMENT ANALYSIS DEMO")
     print("="*70)
     
     analyzer = SentimentAnalyzer()
@@ -553,7 +553,7 @@ def demo():
         DEMO_COMMUNITY_DATA
     )
     
-    print("\n📈 SENTIMENT SCORES:\n")
+    print("\n[RISE] SENTIMENT SCORES:\n")
     print(f"{'Token':<12}{'Social':<10}{'Community':<12}{'Composite':<12}{'Sentiment'}")
     print("-"*70)
     
@@ -569,7 +569,7 @@ def demo():
         print()
     
     # Hype cycle detection
-    print("\n🔄 HYPE CYCLE ANALYSIS:\n")
+    print("\n[CYCLE] HYPE CYCLE ANALYSIS:\n")
     detector = HypeCycleDetector()
     
     test_tokens = [

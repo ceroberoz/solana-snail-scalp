@@ -88,9 +88,9 @@ class Trader:
             try:
                 with open(self.results_file, "r") as f:
                     data = json.load(f)
-                    print(f"📜 Loaded {len(data.get('trades', []))} historical trades")
+                    print(f"[LOAD] Loaded {len(data.get('trades', []))} historical trades")
             except Exception as e:
-                print(f"⚠️ Could not load trade history: {e}")
+                print(f"[WARN] Could not load trade history: {e}")
 
     def _save_history(self):
         """Save trade history to file"""
@@ -133,7 +133,7 @@ class Trader:
             self.config.get("primary_allocation", 3.0),
         )
 
-        print(f"\n🎯 ENTRY SIGNAL at ${price:.4f}")
+        print(f"\n[ENTRY] ENTRY SIGNAL at ${price:.4f}")
         print(f"   Size: ${size_usd:.2f} USDC")
 
         # In simulation, we just log it
@@ -145,7 +145,7 @@ class Trader:
 
         self.active_position = Trade(entry_price=price, size_usd=size_usd, entry_time=time.time())
 
-        print(f"✅ Position opened: ${size_usd:.2f} @ ${price:.4f}")
+        print(f"[OK] Position opened: ${size_usd:.2f} @ ${price:.4f}")
         return True
 
     async def manage_position(self, current_price: float, indicators):
@@ -166,7 +166,7 @@ class Trader:
                 self.config.get("dca_allocation", 3.0),
             )
             if dca_size > 0:
-                print(f"\n💰 DCA Trigger at ${current_price:.4f} (down {pnl_pct:.2f}%)")
+                print(f"\n[DCA] DCA Trigger at ${current_price:.4f} (down {pnl_pct:.2f}%)")
                 # Execute DCA
                 old_size = pos.size_usd
                 pos.size_usd += dca_size
@@ -177,21 +177,21 @@ class Trader:
         # Check Stop Loss (1.5% from entry)
         stop_loss = self.config.get("stop_loss_percent", 1.5)
         if pnl_pct <= -stop_loss:
-            print(f"\n🛑 STOP LOSS at ${current_price:.4f} ({pnl_pct:.2f}%)")
+            print(f"\n[STOP] STOP LOSS at ${current_price:.4f} ({pnl_pct:.2f}%)")
             await self._close_position(current_price, CloseReason.STOP_LOSS)
             return
 
         # Check TP1 (2.5%)
         tp1 = self.config.get("tp1_percent", 2.5)
         if pnl_pct >= tp1 and not pos.tp1_hit:
-            print(f"\n🎯 TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%)")
+            print(f"\n[TP1] TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%)")
             await self._partial_close(current_price, 0.5, CloseReason.TP1)
             pos.tp1_hit = True
 
         # Check TP2 (4%)
         tp2 = self.config.get("tp2_percent", 4.0)
         if pnl_pct >= tp2 and pos.tp1_hit:
-            print(f"\n🎯 TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%)")
+            print(f"\n[TP2] TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%)")
             await self._close_position(current_price, CloseReason.TP2)
 
     async def _partial_close(self, price: float, portion: float, reason: CloseReason):
@@ -222,7 +222,7 @@ class Trader:
         total_pnl = pos.pnl_usd + remaining_pnl
         total_pct = (price - entry) / entry * 100
 
-        print(f"\n🔒 Position Closed ({reason.value})")
+        print(f"\n[CLOSE] Position Closed ({reason.value})")
         print(f"   Entry: ${entry:.4f} -> Exit: ${price:.4f}")
         print(f"   Total PnL: ${total_pnl:.2f} ({total_pct:.2f}%)")
 
@@ -263,4 +263,4 @@ class Trader:
         self.total_pnl = 0.0
         if self.results_file.exists():
             self.results_file.unlink()
-        print("🔄 Trader reset")
+        print("[RESET] Trader reset")

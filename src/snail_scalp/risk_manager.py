@@ -79,12 +79,12 @@ class RiskManager:
 
         # Daily loss limit
         if self.daily_stats.pnl_usd <= -self.daily_loss_limit:
-            print(f"🛑 Daily loss limit hit (${self.daily_stats.pnl_usd:.2f}). Stopping.")
+            print(f"[STOP] Daily loss limit hit (${self.daily_stats.pnl_usd:.2f}). Stopping.")
             return False
 
         # Consecutive losses
         if self.daily_stats.consecutive_losses >= self.max_consecutive_losses:
-            print(f"🛑 {self.max_consecutive_losses} consecutive losses. Pausing 24h.")
+            print(f"[STOP] {self.max_consecutive_losses} consecutive losses. Pausing 24h.")
             self.daily_stats.paused_until = (datetime.now() + timedelta(hours=24)).isoformat()
             self._save_state()
             return False
@@ -151,4 +151,4 @@ class RiskManager:
         self.daily_stats = self._new_day()
         if self.state_file.exists():
             self.state_file.unlink()
-        print("🔄 Risk manager reset")
+        print("[RESET] Risk manager reset")
