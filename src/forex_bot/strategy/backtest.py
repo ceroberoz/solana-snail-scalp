@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 
 from .indicators import ForexIndicators
+from .position_sizing import calculate_position_size, PositionSize
 
 
 logger = logging.getLogger(__name__)
@@ -169,22 +170,17 @@ class ForexBacktest:
         self.max_capital = initial_capital
         self.max_drawdown = 0.0
         
-    def calculate_position_size(self, stop_pips: float) -> float:
-        """
-        Calculate position size in lots
+    def calculate_position_size(self, entry: float, stop: float) -> PositionSize:
+        """Calculate position size using position sizing module"""
+        from .position_sizing import calculate_position_size
         
-        Formula: Risk Amount / (Stop Pips * Pip Value)
-        """
-        risk_amount = self.capital * (self.risk_per_trade_pct / 100)
-        stop_value = stop_pips * self.pip_value_per_micro_lot
-        
-        if stop_value == 0:
-            return 0.0
-        
-        micro_lots = risk_amount / stop_value
-        
-        # Round to 2 decimals (micro lots)
-        return round(micro_lots / 100, 2)  # Convert to standard lots
+        return calculate_position_size(
+            account_balance=self.capital,
+            entry_price=entry,
+            stop_price=stop,
+            pair_code="USD_SGD",  # Phase 1 only
+            risk_pct=self.risk_per_trade_pct,
+        )
     
     def run(self) -> BacktestResult:
         """Run the backtest simulation"""
@@ -252,19 +248,20 @@ class ForexBacktest:
         if not signal.is_valid:
             return
         
-        # Calculate position size
-        size_lots = self.calculate_position_size(self.config['stop_pips'])
-        
-        if size_lots <= 0:
-            return
-        
-        # Get exit levels
+        # Calculate exit levels first to get actual stop price
         levels = indicators.get_exit_levels(
             entry_price=current_price,
             target_pips=self.config['target_pips'],
             stop_pips=self.config['stop_pips'],
             use_atr=True,
         )
+        
+        # Calculate position size
+        position = self.calculate_position_size(current_price, levels['stop'])
+        size_lots = position.lots
+        
+        if size_lots <= 0:
+            return
         
         # Open trade
         self.active_trade = Trade(
