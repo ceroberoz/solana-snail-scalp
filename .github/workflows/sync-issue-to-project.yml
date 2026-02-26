@@ -76,18 +76,33 @@ jobs:
               return;
             }
             
-            // Find the project item for this issue
-            const projectQuery = `
-              query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  issue(number: $number) {
-                    projectItems(first: 10) {
+            // Get the project directly by number (viewer query for user projects)
+            const viewerProjectQuery = `
+              query {
+                viewer {
+                  projectV2(number: 3) {
+                    id
+                    title
+                  }
+                }
+              }
+            `;
+            
+            const viewerResult = await github.graphql(viewerProjectQuery);
+            const projectId = viewerResult.viewer.projectV2.id;
+            
+            // Now find the item in this project
+            const itemsQuery = `
+              query($projectId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    items(first: 100) {
                       nodes {
                         id
-                        project {
-                          id
-                          number
-                          title
+                        content {
+                          ... on Issue {
+                            number
+                          }
                         }
                       }
                     }
@@ -96,31 +111,20 @@ jobs:
               }
             `;
             
-            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-            const projectResult = await github.graphql(projectQuery, {
-              owner: owner,
-              repo: repo,
-              number: issue.number
-            });
+            const itemsResult = await github.graphql(itemsQuery, { projectId });
+            const items = itemsResult.node.items.nodes;
             
-            const projectItems = projectResult.repository.issue.projectItems.nodes;
-            if (projectItems.length === 0) {
-              console.log("Issue not added to any project yet, skipping");
-              return;
-            }
-            
-            // Find our specific project (Roadmap v2.0)
-            const roadmapProject = projectItems.find(item => 
-              item.project.title === "Roadmap v2.0" || item.project.number === 3
+            // Find the item for this issue
+            const issueItem = items.find(item => 
+              item.content && item.content.number === issue.number
             );
             
-            if (!roadmapProject) {
-              console.log("Issue not in Roadmap v2.0 project, skipping");
+            if (!issueItem) {
+              console.log("Issue not found in Roadmap v2.0 project, skipping");
               return;
             }
             
-            const projectId = roadmapProject.project.id;
-            const itemId = roadmapProject.id;
+            const itemId = issueItem.id;
             
             console.log(`Found project item: ${itemId} in project ${projectId}`);
             

@@ -28,10 +28,10 @@ jobs:
             
             console.log(`Found ${issues.length} issues`);
             
-            // Get project info
+            // Get project info - try viewer first (for user projects)
             const projectQuery = `
-              query($owner: String!) {
-                user(login: $owner) {
+              query {
+                viewer {
                   projectV2(number: 3) {
                     id
                     fields(first: 20) {
@@ -55,9 +55,9 @@ jobs:
               }
             `;
             
-            const projectResult = await github.graphql(projectQuery, { owner });
-            const projectId = projectResult.user.projectV2.id;
-            const projectFields = projectResult.user.projectV2.fields.nodes;
+            const projectResult = await github.graphql(projectQuery);
+            const projectId = projectResult.viewer.projectV2.id;
+            const projectFields = projectResult.viewer.projectV2.fields.nodes;
             
             // Build field map
             const fieldMap = {};
