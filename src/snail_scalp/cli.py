@@ -57,6 +57,11 @@ Commands:
     %(prog)s --backtest --days 60          # Run 60-day backtest
     %(prog)s --backtest --capital 100      # Test with $100 capital
 
+  Real Data Mode:
+    %(prog)s --real-data                   # Simulate with real SOL data
+    %(prog)s --real-data --token bonk      # Use BONK market data
+    %(prog)s --real-data --days 14 --capital 50
+
   Multi-Token Mode:
     %(prog)s --multi                       # Multi-token trading (simulation)
     %(prog)s --multi --live                # Multi-token trading (live)
@@ -121,6 +126,20 @@ Commands:
         type=int,
         default=30,
         help="Number of days to backtest (default: 30)",
+    )
+
+    # Real data mode
+    parser.add_argument(
+        "--real-data",
+        action="store_true",
+        help="Fetch real market data and run simulation",
+    )
+
+    parser.add_argument(
+        "--token",
+        type=str,
+        default="solana",
+        help="Token ID for real data (default: solana). Options: solana, bonk, dogwifcoin",
     )
 
     # Multi-token mode
@@ -284,6 +303,152 @@ def run_multi_token(args):
         print("\nStopped by user.")
 
     return 0
+
+
+def run_real_data_simulation(args):
+    """Run simulation with real market data from CoinGecko"""
+    import aiohttp
+    import csv
+    from datetime import datetime
+    from pathlib import Path
+    
+    print("\n" + "="*70)
+    print("REAL DATA SIMULATION MODE")
+    print("="*70)
+    print(f"Token: {args.token.upper()}")
+    print(f"Days: {args.days}")
+    print(f"Capital: ${args.capital:.2f}")
+    print("="*70)
+    
+    async def fetch_and_simulate():
+        # Fetch data
+        print(f"\n[FETCH] Getting {args.days} days of {args.token} data from CoinGecko...")
+        
+        url = f"https://api.coingecko.com/api/v3/coins/{args.token}/market_chart"
+        params = {"vs_currency": "usd", "days": str(args.days)}
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    print(f"[ERROR] Failed to fetch data: HTTP {resp.status}")
+                    return 1
+                
+                data = await resp.json()
+                prices = data.get("prices", [])
+                volumes = data.get("total_volumes", [])
+                
+                if not prices:
+                    print("[ERROR] No data received")
+                    return 1
+                
+                # Save to CSV
+                output_file = f"data/real_{args.token}_{args.days}d.csv"
+                Path("data").mkdir(parents=True, exist_ok=True)
+                
+                vol_dict = {v[0]: v[1] for v in volumes}
+                with open(output_file, 'w', newline='') as f:
+                    writer = csv.DictWriter(
+                        f,
+                        fieldnames=["timestamp", "datetime", "price", "volume24h", "liquidity"]
+                    )
+                    writer.writeheader()
+                    
+                    for ts_ms, price in prices:
+                        ts = ts_ms / 1000
+                        writer.writerow({
+                            "timestamp": ts,
+                            "datetime": datetime.fromtimestamp(ts).isoformat(),
+                            "price": round(price, 4),
+                            "volume24h": int(vol_dict.get(ts_ms, 0)),
+                            "liquidity": 25000000,
+                        })
+                
+                # Stats
+                price_vals = [p[1] for p in prices]
+                print(f"[OK] Downloaded {len(prices)} price points")
+                print(f"\n[MARKET DATA]")
+                print(f"  Price Range: ${min(price_vals):.2f} - ${max(price_vals):.2f}")
+                print(f"  Current: ${price_vals[-1]:.2f}")
+                print(f"  Change: {((price_vals[-1]/price_vals[0])-1)*100:+.2f}%")
+        
+        # Run simulation
+        print("\n[SIMULATION] Running with real market data...")
+        
+        feed = HybridDataFeed(
+            simulate=True,
+            log_file=output_file,
+            speed_multiplier=args.speed
+        )
+        
+        indicators = TechnicalIndicators()
+        risk = RiskManager(simulate=True)
+        
+        trader = Trader(
+            strategy_config={
+                "rsi_oversold_min": strategy_config.rsi_oversold_min,
+                "rsi_oversold_max": strategy_config.rsi_oversold_max,
+                "min_band_width_percent": strategy_config.min_band_width_percent,
+                "primary_allocation": strategy_config.primary_allocation,
+                "dca_allocation": strategy_config.dca_allocation,
+                "dca_trigger_percent": strategy_config.dca_trigger_percent,
+                "tp1_percent": strategy_config.tp1_percent,
+                "tp2_percent": strategy_config.tp2_percent,
+                "stop_loss_percent": strategy_config.stop_loss_percent,
+            },
+            risk_manager=risk,
+            simulate=True
+        )
+        
+        trades_executed = 0
+        
+        while True:
+            try:
+                price_data = await feed.get_price_data(None, "")
+                if not price_data:
+                    break
+                
+                current_price = price_data.price
+                indicators.add_price(current_price, price_data.volume24h)
+                
+                # Trading window check
+                hour = datetime.fromtimestamp(price_data.timestamp).hour
+                if not (9 <= hour < 11):
+                    continue
+                
+                if len(indicators.prices) >= strategy_config.bb_period:
+                    if not trader.active_position:
+                        if indicators.is_entry_signal(current_price):
+                            await trader.check_entry(current_price, indicators, args.capital)
+                            trades_executed += 1
+                    else:
+                        await trader.manage_position(current_price, indicators)
+                        
+            except StopIteration:
+                break
+        
+        # Results
+        summary = trader.get_summary()
+        risk_stats = risk.get_stats()
+        
+        print("\n" + "="*70)
+        print("SIMULATION RESULTS (REAL DATA)")
+        print("="*70)
+        print(f"Initial Capital:    ${args.capital:.2f}")
+        print(f"Total PnL:          ${summary['total_pnl']:+.2f}")
+        print(f"Return:             {(summary['total_pnl']/args.capital*100):+.2f}%")
+        print(f"Total Trades:       {summary['total_trades']}")
+        print(f"Win Rate:           {summary['win_rate']:.1f}%")
+        print(f"Wins/Losses:        {risk_stats['wins']}/{risk_stats['losses']}")
+        print("="*70)
+        
+        if summary['total_trades'] == 0:
+            print("\n[NOTE] No trades executed.")
+            print("       Market conditions didn't meet entry criteria.")
+            print("       This is normal - bot waits for good setups.")
+        
+        return 0
+    
+    return asyncio.run(fetch_and_simulate())
 
 
 class TradingBot:
@@ -516,6 +681,9 @@ def main():
 
     if args.multi:
         return run_multi_token(args)
+    
+    if args.real_data:
+        return run_real_data_simulation(args)
 
     # Standard single-token mode
     # Generate sample data if needed
