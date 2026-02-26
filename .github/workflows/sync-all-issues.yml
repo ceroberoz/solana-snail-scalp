@@ -28,10 +28,7 @@ jobs:
             
             console.log(`Found ${issues.length} issues`);
             
-            // Get project info - repository project
-            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-            
-            // First get repository ID
+            // Get project info - repository project (owner and repo already defined above)
             const repoQuery = `
               query($owner: String!, $repo: String!) {
                 repository(owner: $owner, name: $repo) {
