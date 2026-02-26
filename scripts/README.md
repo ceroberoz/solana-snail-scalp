@@ -1,33 +1,18 @@
-# Roadmap to GitHub Sync
+# Scripts
 
-Scripts for syncing `roadmap.md` with GitHub Issues and Project Board.
+Utility scripts for the Solana Snail Scalp Bot project.
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `sync_roadmap_to_github.py` | Syncs roadmap.md status to GitHub issues |
+| `sync_roadmap_to_github.py` | Syncs roadmap.md status to GitHub issues (open/close) |
 
-## Usage
+## Roadmap Sync
 
-### 1. Update Status in roadmap.md
+Syncs `roadmap.md` status emojis with GitHub issue states.
 
-Edit `roadmap.md` and change the status emoji for any user story:
-
-```markdown
-**US-1.1: Widen RSI Entry Range**
-**Status:** 🚧 In Progress   <- Change this!
-```
-
-**Status Options:**
-| Emoji | Status | GitHub Action |
-|-------|--------|---------------|
-| 📝 | Todo | Issue stays open |
-| 🚧 | In Progress | Issue stays open |
-| ✅ | Done | Issue gets closed |
-| ⏸️ | Blocked | Issue stays open, adds label |
-
-### 2. Run Sync Script
+### Usage
 
 **Dry run (preview changes):**
 ```bash
@@ -39,44 +24,40 @@ python scripts/sync_roadmap_to_github.py --dry-run
 python scripts/sync_roadmap_to_github.py
 ```
 
-**Options:**
+### Status Mapping
+
+| Emoji | Status | GitHub Action |
+|-------|--------|---------------|
+| 📝 | Todo | Issue stays open |
+| 🚧 | In Progress | Issue stays open |
+| ✅ | Done | Issue gets closed |
+| ⏸️ | Blocked | Issue stays open, adds label |
+
+## GitHub Project Automation
+
+Project fields (Epic, Priority, Story Points, Sprint) are automatically synced via GitHub Actions:
+
+- **Auto-sync**: `.github/workflows/sync-issue-to-project.yml` - triggers on issue edits
+- **Manual sync**: `.github/workflows/sync-all-issues.yml` - bulk update all issues
+
+### Running Manual Sync
+
+Go to **Actions** → **Sync All Issues to Project (Manual)** → **Run workflow**
+
+Or via CLI:
 ```bash
-python scripts/sync_roadmap_to_github.py --help
-
-# Sync different file
-python scripts/sync_roadmap_to_github.py --roadmap path/to/roadmap.md
-
-# Sync to different repo
-python scripts/sync_roadmap_to_github.py --repo owner/repo-name
+gh workflow run sync-all-issues.yml
 ```
 
-## Workflow Example
+### How It Works
 
-1. Start working on US-1.1:
-   - Edit `roadmap.md`: Change `**Status:** 📝 Todo` to `**Status:** 🚧 In Progress`
-   - Run sync: `python scripts/sync_roadmap_to_github.py`
+The workflows parse issue descriptions for these fields:
 
-2. Complete US-1.1:
-   - Edit `roadmap.md`: Change `**Status:** 🚧 In Progress` to `**Status:** ✅ Done`
-   - Run sync: `python scripts/sync_roadmap_to_github.py`
-   - GitHub issue #1 will be closed automatically
+```markdown
+**Epic:** Entry Strategy
+**Priority:** 🔴 Critical
+**Story Points:** 5
+**Sprint:** Sprint 1-2
+```
 
-3. Blocked on US-2.3:
-   - Edit `roadmap.md`: Change `**Status:** 📝 Todo` to `**Status:** ⏸️ Blocked`
-   - Run sync: `python scripts/sync_roadmap_to_github.py`
-   - GitHub issue gets "blocked" label
-
-## Integration with GitHub Project Board
-
-The sync script only updates issue **state** (open/closed). To update Project Board fields (Epic, Priority, Sprint, Story Points):
-
-1. Go to your GitHub Project: https://github.com/users/ceroberoz/projects/3
-2. Enable the fields on board cards (View options → Fields)
-3. Or edit issues directly on the board
-
-## Future Improvements
-
-- [ ] Auto-sync on roadmap.md commit (GitHub Action)
-- [ ] Two-way sync (GitHub → roadmap.md)
-- [ ] Update Project Board custom fields via API
-- [ ] Batch update multiple stories
+And automatically update the GitHub Project fields using GraphQL API.
