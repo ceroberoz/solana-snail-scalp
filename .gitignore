@@ -178,7 +178,12 @@ data/simulation_state.json
 data/simulation_results.json
 data/simulation_trades.json
 data/trades.json
+data/portfolio_state.json
+data/simulation_portfolio.json
+data/backtest_report.json
+data/*_watchlist.json
 data/*.csv
+!data/top10_solana_coins.json
 !data/.gitkeep
 
 # Logs

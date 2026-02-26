@@ -5,8 +5,9 @@ Conservative scalping strategy for $20 capital on Solana
 
 Usage:
     uv run python -m snail_scalp --simulate              # Run simulation with sample data
-    uv run python -m snail_scalp --log data/history.csv  # Run simulation with custom log file
-    uv run python -m snail_scalp --speed 10              # Run simulation 10x faster
+    uv run python -m snail_scalp --screen                # Screen tokens and show best picks
+    uv run python -m snail_scalp --backtest --days 30    # Backtest strategy
+    uv run python -m snail_scalp --multi                 # Multi-token trading mode
     uv run python -m snail_scalp                         # Run live trading (requires API keys)
 """
 
@@ -39,14 +40,30 @@ def parse_arguments():
         description="Solana Snail Scalp Bot - Conservative scalping strategy",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  %(prog)s --simulate                    # Paper trading with sample data
-  %(prog)s --simulate --log data/history.csv  # Use custom price history
-  %(prog)s --speed 5                     # 5x simulation speed
-  %(prog)s                               # Live trading mode
+Commands:
+  Standard Mode:
+    %(prog)s --simulate                    # Paper trading with sample data
+    %(prog)s --simulate --log data/history.csv  # Use custom price history
+    %(prog)s --speed 5                     # 5x simulation speed
+    %(prog)s                               # Live trading mode
+
+  Screening Mode:
+    %(prog)s --screen                      # Show token screening results
+    %(prog)s --screen --hype 70            # Filter by min hype score
+    %(prog)s --screen --risk moderate      # Filter by max risk level
+
+  Backtest Mode:
+    %(prog)s --backtest                    # Run 30-day backtest
+    %(prog)s --backtest --days 60          # Run 60-day backtest
+    %(prog)s --backtest --capital 100      # Test with $100 capital
+
+  Multi-Token Mode:
+    %(prog)s --multi                       # Multi-token trading (simulation)
+    %(prog)s --multi --live                # Multi-token trading (live)
         """,
     )
 
+    # Standard mode
     parser.add_argument(
         "--simulate",
         "-s",
@@ -70,6 +87,56 @@ Examples:
         help=f"Simulation speed multiplier (default: {SIMULATION_CONFIG['speed_multiplier']} = real-time)",
     )
 
+    # Screening mode
+    parser.add_argument(
+        "--screen",
+        action="store_true",
+        help="Run token screening and show best picks",
+    )
+
+    parser.add_argument(
+        "--hype",
+        type=float,
+        default=60.0,
+        help="Minimum hype score for screening (default: 60)",
+    )
+
+    parser.add_argument(
+        "--risk",
+        type=str,
+        default="high",
+        choices=["minimal", "low", "moderate", "high", "extreme"],
+        help="Maximum risk level for screening (default: high)",
+    )
+
+    # Backtest mode
+    parser.add_argument(
+        "--backtest",
+        action="store_true",
+        help="Run backtest simulation",
+    )
+
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        help="Number of days to backtest (default: 30)",
+    )
+
+    # Multi-token mode
+    parser.add_argument(
+        "--multi",
+        action="store_true",
+        help="Run multi-token trading mode",
+    )
+
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Enable live trading (default is simulation)",
+    )
+
+    # Common options
     parser.add_argument(
         "--capital",
         "-c",
@@ -106,8 +173,121 @@ Examples:
     return parser.parse_args()
 
 
+def run_screening(args):
+    """Run token screening"""
+    from snail_scalp.multi_token_feed import MultiTokenFeed
+    from snail_scalp.token_screener import RiskLevel
+
+    print("\n" + "="*70)
+    print("TOKEN SCREENING MODE")
+    print("="*70)
+
+    # Map risk string to enum
+    risk_map = {
+        "minimal": RiskLevel.MINIMAL,
+        "low": RiskLevel.LOW,
+        "moderate": RiskLevel.MODERATE,
+        "high": RiskLevel.HIGH,
+        "extreme": RiskLevel.EXTREME,
+    }
+    max_risk = risk_map.get(args.risk, RiskLevel.HIGH)
+
+    print(f"Min Hype Score: {args.hype}")
+    print(f"Max Risk Level: {max_risk.name}")
+    print("="*70)
+
+    # Load and screen
+    feed = MultiTokenFeed()
+
+    # Print full dashboard
+    feed.print_trading_dashboard()
+
+    # Export watchlist
+    watchlist_file = feed.export_watchlist("data/screening_watchlist.json")
+    print(f"\nWatchlist exported to: {watchlist_file}")
+
+    # Show filtered results
+    filtered = feed.get_ranked_tokens(
+        min_hype_score=args.hype,
+        max_risk=max_risk
+    )
+
+    print(f"\n" + "="*70)
+    print(f"FILTERED RESULTS (Hype >= {args.hype}, Risk <= {max_risk.name})")
+    print("="*70)
+    print(f"Found {len(filtered)} tokens matching criteria\n")
+
+    for i, token in enumerate(filtered[:10], 1):
+        m = token.metrics
+        h = token.hype
+        print(f"{i}. {m.symbol} - Hype: {h.total_hype_score:.1f}, Risk: {h.risk_level.name}")
+        print(f"   Price: ${m.price_usd:.6f} | 24h: {m.change_24h:+.1f}% | Liquidity: ${m.liquidity_usd/1e6:.1f}M")
+
+    return 0
+
+
+def run_backtest(args):
+    """Run backtest"""
+    from snail_scalp.backtest_engine import run_backtest
+
+    print("\n" + "="*70)
+    print("BACKTEST MODE")
+    print("="*70)
+    print(f"Capital: ${args.capital:.2f}")
+    print(f"Days: {args.days}")
+    print("="*70)
+
+    result = run_backtest(
+        capital=args.capital,
+        days=args.days,
+        save=True
+    )
+
+    return 0 if result.total_return_pct > 0 else 1
+
+
+def run_multi_token(args):
+    """Run multi-token trading"""
+    from snail_scalp.screening_bot import ScreeningTradingBot
+    from snail_scalp.token_screener import RiskLevel
+
+    print("\n" + "="*70)
+    print("MULTI-TOKEN TRADING MODE")
+    print("="*70)
+
+    simulate = not args.live
+    mode_str = "SIMULATION" if simulate else "LIVE TRADING"
+    print(f"Mode: {mode_str}")
+    print(f"Capital: ${args.capital:.2f}")
+    print("="*70)
+
+    if not simulate:
+        print("\nWARNING: LIVE TRADING MODE")
+        print("This will use real funds!")
+        response = input("\nContinue? (yes/no): ").lower().strip()
+        if response != "yes":
+            print("Aborted.")
+            return 0
+
+    bot = ScreeningTradingBot(
+        initial_capital=args.capital,
+        max_positions=3,
+        simulate=simulate,
+        min_hype_score=60.0,
+        max_risk_level=RiskLevel.HIGH,
+        trading_hours=(args.window_start, args.window_end),
+    )
+
+    try:
+        asyncio.run(bot.run())
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
+
+    return 0
+
+
 class TradingBot:
-    """Main trading bot orchestrator"""
+    """Main trading bot orchestrator (single token mode)"""
 
     def __init__(self, args):
         self.args = args
@@ -316,6 +496,28 @@ def main():
     """Main entry point"""
     args = parse_arguments()
 
+    # Reset if requested
+    if args.reset:
+        print("Resetting state files...")
+        for f in ["data/trading_state.json", "data/simulation_state.json",
+                  "data/trades.json", "data/simulation_trades.json",
+                  "data/portfolio_state.json", "data/simulation_portfolio.json"]:
+            p = Path(f)
+            if p.exists():
+                p.unlink()
+                print(f"  Deleted: {f}")
+
+    # Route to appropriate mode
+    if args.screen:
+        return run_screening(args)
+
+    if args.backtest:
+        return run_backtest(args)
+
+    if args.multi:
+        return run_multi_token(args)
+
+    # Standard single-token mode
     # Generate sample data if needed
     if args.simulate and not Path(args.log).exists():
         print(f"Log file not found: {args.log}")
