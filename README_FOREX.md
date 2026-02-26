@@ -50,13 +50,13 @@ uv pip install pandas yfinance diskcache pyarrow matplotlib requests
 ### 2. Download Historical Data
 
 ```bash
-uv run python -X utf8 scripts/download_history.py --pair USD_SGD --period 2y
+uv run python -X utf8 scripts/forex_download_history.py --pair USD_SGD --period 2y
 ```
 
 ### 3. Run Backtest
 
 ```bash
-uv run python -X utf8 scripts/run_backtest.py --capital 1000
+uv run python -X utf8 scripts/forex_run_backtest.py --capital 1000
 ```
 
 ### 4. Test OANDA Connection (for live trading)
@@ -68,7 +68,7 @@ export OANDA_ACCOUNT_ID="your_account_id"
 export OANDA_ENVIRONMENT="practice"
 
 # Test connection
-uv run python -X utf8 scripts/test_oanda.py
+uv run python -X utf8 scripts/forex_test_oanda.py
 ```
 
 ---
@@ -106,9 +106,10 @@ Example ($1k account, 25 pip stop):
 |------|-------------|
 | `data/historical/usd_sgd_1h_2y.parquet` | 2 years of 1h data |
 | `data/backtest_results.png` | Equity curve visualization |
-| `scripts/download_history.py` | Data downloader |
-| `scripts/run_backtest.py` | Backtest runner |
-| `scripts/test_oanda.py` | OANDA connection test |
+| `scripts/forex_download_history.py` | Data downloader |
+| `scripts/forex_run_backtest.py` | Backtest runner |
+| `scripts/forex_test_oanda.py` | OANDA connection test |
+| `scripts/forex_fetch_live_price.py` | Live price fetcher |
 
 ---
 
