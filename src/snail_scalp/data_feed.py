@@ -132,7 +132,7 @@ class SimulationDataFeed:
             return data
 
         except StopIteration:
-            print("🏁 Simulation data exhausted")
+            print("[END] Simulation data exhausted")
             return None
 
     def reset(self):
