@@ -76,26 +76,14 @@ jobs:
               return;
             }
             
-            // Get the project directly by number (viewer query for user projects)
-            const viewerProjectQuery = `
-              query {
-                viewer {
+            // Get repository project
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            
+            const repoProjectQuery = `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
                   projectV2(number: 3) {
                     id
-                    title
-                  }
-                }
-              }
-            `;
-            
-            const viewerResult = await github.graphql(viewerProjectQuery);
-            const projectId = viewerResult.viewer.projectV2.id;
-            
-            // Now find the item in this project
-            const itemsQuery = `
-              query($projectId: ID!) {
-                node(id: $projectId) {
-                  ... on ProjectV2 {
                     items(first: 100) {
                       nodes {
                         id
@@ -111,8 +99,19 @@ jobs:
               }
             `;
             
-            const itemsResult = await github.graphql(itemsQuery, { projectId });
-            const items = itemsResult.node.items.nodes;
+            const repoResult = await github.graphql(repoProjectQuery, { 
+              owner, 
+              repo,
+              number: issue.number 
+            });
+            
+            if (!repoResult.repository.projectV2) {
+              console.log("Project not found in repository");
+              return;
+            }
+            
+            const projectId = repoResult.repository.projectV2.id;
+            const items = repoResult.repository.projectV2.items.nodes;
             
             // Find the item for this issue
             const issueItem = items.find(item => 

@@ -28,10 +28,14 @@ jobs:
             
             console.log(`Found ${issues.length} issues`);
             
-            // Get project info - try viewer first (for user projects)
-            const projectQuery = `
-              query {
-                viewer {
+            // Get project info - repository project
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            
+            // First get repository ID
+            const repoQuery = `
+              query($owner: String!, $repo: String!) {
+                repository(owner: $owner, name: $repo) {
+                  id
                   projectV2(number: 3) {
                     id
                     fields(first: 20) {
@@ -55,9 +59,14 @@ jobs:
               }
             `;
             
-            const projectResult = await github.graphql(projectQuery);
-            const projectId = projectResult.viewer.projectV2.id;
-            const projectFields = projectResult.viewer.projectV2.fields.nodes;
+            const repoResult = await github.graphql(repoQuery, { owner, repo });
+            
+            if (!repoResult.repository.projectV2) {
+              throw new Error("Project not found. Make sure project #3 exists in this repository.");
+            }
+            
+            const projectId = repoResult.repository.projectV2.id;
+            const projectFields = repoResult.repository.projectV2.fields.nodes;
             
             // Build field map
             const fieldMap = {};
