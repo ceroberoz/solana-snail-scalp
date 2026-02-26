@@ -81,9 +81,17 @@ jobs:
             function parseFields(body, title) {
               const fields = {};
               
-              // Story Points
-              const spMatch = body.match(/Story Points:\s*(\d+)/);
-              if (spMatch) fields.storyPoints = parseInt(spMatch[1]);
+              // Story Points - handle various formats
+              const spMatch = body.match(/Story Points:\s*(\d+)/i);
+              if (spMatch) {
+                fields.storyPoints = parseInt(spMatch[1]);
+              } else {
+                // Try alternate format: **Story Points:** 8
+                const spMatch2 = body.match(/\*\*Story Points:\*\*\s*(\d+)/i);
+                if (spMatch2) {
+                  fields.storyPoints = parseInt(spMatch2[1]);
+                }
+              }
               
               // Epic
               const epicMatch = body.match(/\*\*Epic:\*\*\s*([^\n|]+)/);
