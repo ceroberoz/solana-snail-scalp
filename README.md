@@ -108,19 +108,45 @@ Sharpe Ratio: 1.68
 Report saved to: data/backtest_report.json
 ```
 
+## Key Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Entry Optimization** | Widen RSI (20-40), Volume confirmation (>1.3x), BB near-touch (0.5%), Multi-timeframe (15m confirms 5m) | ✅ Complete |
+| **Exit Strategy** | ATR-based stops, Breakeven after TP1, Trailing stop (1% below high), Time-based exit (2h max) | ✅ Complete |
+| **Profit Scaling** | Partial scale out at 25%/50%/75% with final trailing stop | ✅ Complete |
+| **Risk Management** | 50% DCA size, Dynamic position sizing (50-150%), Correlation check (max 2) | ✅ Complete |
+| **Intelligence** | Market regime detection, Confidence scoring, Skip choppy markets | ✅ Complete |
+
+See [Strategy Guide](docs/STRATEGY.md) for comprehensive feature documentation.
+
 ## Configuration
 
 Edit `src/snail_scalp/config.py`:
 
 ```python
-initial_capital = 20.0        # Starting capital
-trading_start_utc = 9         # 09:00 UTC
-trading_end_utc = 11          # 11:00 UTC
-rsi_oversold_min = 25         # RSI entry lower bound
-rsi_oversold_max = 35         # RSI entry upper bound
-tp1_percent = 2.5             # First take profit
-tp2_percent = 4.0             # Second take profit
-stop_loss_percent = 1.5       # Stop loss
+# Entry Settings
+rsi_oversold_min = 20         # RSI entry lower bound (was 25)
+rsi_oversold_max = 40         # RSI entry upper bound (was 35)
+
+# Exit Settings
+use_atr_stop = True           # ATR-based dynamic stops
+use_breakeven_stop = True     # Move stop to breakeven after TP1
+use_trailing_stop = True      # Trail at 1% below recent high
+use_time_exit = True          # Max 2 hour hold time
+
+# Profit Scaling
+use_partial_scaling = True    # Scale out at 25/50/75%
+partial_scale_levels = ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0))
+
+# Risk Management
+dca_allocation_ratio = 0.5    # DCA size = 50% of original
+use_dynamic_sizing = True     # Size based on confidence
+use_correlation_check = True  # Max 2 correlated positions
+
+# Intelligence
+use_regime_detection = True   # Detect trending/ranging/choppy
+skip_choppy_markets = True    # Skip low-quality markets
 ```
 
 ## Risk Management
