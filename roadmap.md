@@ -127,7 +127,7 @@ Story Points: 3
 ```
 
 **US-1.2: Add Volume Confirmation**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want entries only when volume is >1.3x average
@@ -143,7 +143,7 @@ Story Points: 5
 ```
 
 **US-1.3: BB Near-Touch Entry**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want to enter when price is within 0.5% of lower BB
@@ -199,7 +199,7 @@ Story Points: 13
 #### User Stories
 
 **US-2.1: Implement ATR-Based Stops**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want dynamic stop-loss based on ATR
@@ -305,7 +305,7 @@ Story Points: 5
 #### User Stories
 
 **US-3.1: Improved DCA Logic**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want DCA size to be 50% of original (not 100%)

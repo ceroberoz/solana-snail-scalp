@@ -28,19 +28,21 @@ class StrategyConfig:
     bb_period: int = 20
     bb_std: float = 2.0
     rsi_period: int = 14
-    rsi_oversold_min: int = 25
-    rsi_oversold_max: int = 35
+    rsi_oversold_min: int = 20
+    rsi_oversold_max: int = 40
     min_band_width_percent: float = 2.0  # Avoid flat markets
 
     # Entry settings
     primary_allocation: float = 3.0  # $3 first entry
-    dca_allocation: float = 3.0  # $3 DCA if drops 1%
+    dca_allocation_ratio: float = 0.5  # DCA size = 50% of original position
     dca_trigger_percent: float = 1.0
 
     # Exit settings
     tp1_percent: float = 2.5  # Sell 50%
     tp2_percent: float = 4.0  # Sell remaining 50%
-    stop_loss_percent: float = 1.5
+    stop_loss_atr_multiplier: float = 1.5  # Stop = Entry - (ATR * 1.5)
+    stop_loss_max_percent: float = 3.0  # Max stop capped at 3%
+    use_atr_stop: bool = True  # Enable ATR-based stops
 
 
 @dataclass

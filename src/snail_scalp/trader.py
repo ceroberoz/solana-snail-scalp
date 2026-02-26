@@ -157,16 +157,23 @@ class Trader:
         entry = pos.entry_price
         pnl_pct = (current_price - entry) / entry * 100
 
-        # Check DCA opportunity (down 1%, haven't DCA'd yet)
+        # Check DCA opportunity (down 1%, haven't DCA'd yet) - US-3.1: DCA size = 50% of original
         dca_trigger = self.config.get("dca_trigger_percent", 1.0)
         if pnl_pct <= -dca_trigger and not pos.dca_done:
-            dca_size = self.risk.check_position_size(
-                pos.size_usd * 2,  # Approximate available
+            # US-3.1: DCA size is 50% of original position (not 100%)
+            dca_size_ratio = self.config.get("dca_allocation_ratio", 0.5)
+            dca_size = pos.size_usd * dca_size_ratio
+            
+            # Check if we have enough capital
+            available = self.risk.check_position_size(
+                pos.size_usd * 3,  # Approximate available
                 "dca",
-                self.config.get("dca_allocation", 3.0),
+                dca_size,
             )
-            if dca_size > 0:
+            
+            if available >= dca_size > 0:
                 print(f"\n[DCA] DCA Trigger at ${current_price:.4f} (down {pnl_pct:.2f}%)")
+                print(f"   DCA size: ${dca_size:.2f} (50% of original ${pos.size_usd:.2f})")
                 # Execute DCA
                 old_size = pos.size_usd
                 pos.size_usd += dca_size
@@ -174,10 +181,19 @@ class Trader:
                 pos.dca_done = True
                 print(f"   New avg entry: ${pos.entry_price:.4f}, Total: ${pos.size_usd:.2f}")
 
-        # Check Stop Loss (1.5% from entry)
-        stop_loss = self.config.get("stop_loss_percent", 1.5)
-        if pnl_pct <= -stop_loss:
-            print(f"\n[STOP] STOP LOSS at ${current_price:.4f} ({pnl_pct:.2f}%)")
+        # Check Stop Loss - US-2.1: ATR-based stop or fallback to fixed
+        use_atr = self.config.get("use_atr_stop", True)
+        atr_multiplier = self.config.get("stop_loss_atr_multiplier", 1.5)
+        max_stop_pct = self.config.get("stop_loss_max_percent", 3.0)
+        
+        exit_levels = indicators.get_exit_levels(
+            entry, use_atr=use_atr, atr_multiplier=atr_multiplier, max_stop_pct=max_stop_pct
+        )
+        stop_price = exit_levels.stop
+        stop_loss_pct = (entry - stop_price) / entry * 100
+        
+        if current_price <= stop_price:
+            print(f"\n[STOP] STOP LOSS at ${current_price:.4f} ({pnl_pct:.2f}%) [ATR stop: ${stop_price:.4f}, {-stop_loss_pct:.2f}%]")
             await self._close_position(current_price, CloseReason.STOP_LOSS)
             return
 

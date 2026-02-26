@@ -83,8 +83,8 @@ class TechnicalIndicators:
         if bb is None:
             return False
 
-        # Condition 1: Price at or below lower band (with 0.1% tolerance)
-        at_bb = current_price <= bb.lower * 1.001
+        # Condition 1: Price at or below lower band (with 0.5% tolerance - US-1.3)
+        at_bb = current_price <= bb.lower * 1.005
 
         # Condition 2: RSI in oversold range
         rsi_ok = rsi_min <= rsi <= rsi_max
@@ -96,7 +96,10 @@ class TechnicalIndicators:
         recent_low = min(list(self.prices)[-5:]) if len(self.prices) >= 5 else current_price
         not_falling = current_price > recent_low * 0.99
 
-        return at_bb and rsi_ok and volatility_ok and not_falling
+        # Condition 5: Volume confirmation (>1.3x average - US-1.2)
+        volume_ok = self._check_volume_confirmation()
+
+        return at_bb and rsi_ok and volatility_ok and not_falling and volume_ok
 
     def get_exit_levels(self, entry_price: float) -> ExitLevels:
         """Calculate take-profit and stop-loss levels"""
@@ -114,10 +117,72 @@ class TechnicalIndicators:
             stop=entry_price * 0.985,  # 1.5% hard stop
         )
 
+    def _check_volume_confirmation(self, threshold: float = 1.3) -> bool:
+        """Check if current volume is above threshold x average (US-1.2)"""
+        if len(self.volumes) < self.period:
+            return True  # Allow if not enough data
+        
+        volumes = list(self.volumes)[-self.period:]
+        avg_volume = np.mean(volumes[:-1]) if len(volumes) > 1 else volumes[0]
+        current_volume = volumes[-1]
+        
+        if avg_volume == 0:
+            return True
+        
+        return current_volume >= avg_volume * threshold
+
+    def calculate_atr(self, period: int = 14) -> float:
+        """Calculate Average True Range (ATR) for dynamic stops (US-2.1)"""
+        if len(self.prices) < period + 1:
+            return 0.0
+        
+        prices = list(self.prices)
+        tr_values = []
+        
+        for i in range(1, min(period + 1, len(prices))):
+            high = max(prices[-(i+1):-i+1]) if i > 1 else prices[-i]
+            low = min(prices[-(i+1):-i+1]) if i > 1 else prices[-(i+1)]
+            close_prev = prices[-(i+1)]
+            
+            tr = max(high - low, abs(high - close_prev), abs(low - close_prev))
+            tr_values.append(tr)
+        
+        return np.mean(tr_values) if tr_values else 0.0
+
+    def get_exit_levels(self, entry_price: float, use_atr: bool = True, 
+                        atr_multiplier: float = 1.5, max_stop_pct: float = 3.0) -> ExitLevels:
+        """Calculate take-profit and stop-loss levels with ATR support (US-2.1)"""
+        bb = self.calculate_bb()
+        
+        if use_atr:
+            atr = self.calculate_atr()
+            if atr > 0:
+                # ATR-based stop: Entry - (ATR * multiplier), capped at max_stop_pct
+                atr_stop = entry_price - (atr * atr_multiplier)
+                max_stop = entry_price * (1 - max_stop_pct / 100)
+                stop = max(atr_stop, max_stop)  # Don't exceed max_stop_pct
+            else:
+                stop = entry_price * 0.985  # Fallback to 1.5% hard stop
+        else:
+            stop = entry_price * 0.985  # 1.5% hard stop
+
+        if bb is None:
+            # Use percentage targets if bands not ready
+            return ExitLevels(
+                tp1=entry_price * 1.025, tp2=entry_price * 1.04, stop=stop
+            )
+
+        return ExitLevels(
+            tp1=bb.middle,  # Middle band
+            tp2=bb.upper,  # Upper band
+            stop=stop,
+        )
+
     def get_stats(self) -> dict:
         """Get current indicator statistics"""
         bb = self.calculate_bb()
         rsi = self.calculate_rsi()
+        atr = self.calculate_atr()
 
         return {
             "bb_lower": bb.lower if bb else None,
@@ -125,5 +190,6 @@ class TechnicalIndicators:
             "bb_upper": bb.upper if bb else None,
             "bb_width": bb.width_percent if bb else None,
             "rsi": rsi,
+            "atr": atr,
             "data_points": len(self.prices),
         }
