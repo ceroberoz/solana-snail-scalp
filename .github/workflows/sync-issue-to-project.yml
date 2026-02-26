@@ -1,0 +1,235 @@
+name: Sync Issue Fields to Project
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  sync-fields:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      repository-projects: write
+    
+    steps:
+      - name: Sync Issue to Project
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || "";
+            const title = issue.title;
+            
+            console.log(`Processing Issue #${issue.number}: ${title}`);
+            
+            // Parse fields from issue body
+            function parseFields(body, title) {
+              const fields = {};
+              
+              // Story Points
+              const spMatch = body.match(/Story Points:\s*(\d+)/);
+              if (spMatch) fields.storyPoints = parseInt(spMatch[1]);
+              
+              // Epic
+              const epicMatch = body.match(/\*\*Epic:\*\*\s*([^\n|]+)/);
+              if (epicMatch) {
+                fields.epic = epicMatch[1].trim();
+              } else {
+                // Determine from title
+                if (title.includes("Entry") || title.includes("US-1.")) fields.epic = "Entry Strategy";
+                else if (title.includes("Exit") || title.includes("US-2.")) fields.epic = "Exit Strategy";
+                else if (title.includes("Risk") || title.includes("DCA") || title.includes("Sizing") || title.includes("Correlation") || title.includes("US-3.")) fields.epic = "Risk Management";
+                else if (title.includes("Data") || title.includes("Order Book") || title.includes("Funding") || title.includes("Whale") || title.includes("US-4.")) fields.epic = "Data Intelligence";
+                else if (title.includes("Live") || title.includes("Jupiter") || title.includes("Wallet") || title.includes("Dashboard") || title.includes("US-5.")) fields.epic = "Live Trading";
+              }
+              
+              // Priority
+              const priorityMap = {
+                "🔴": "🔴 Critical",
+                "🟠": "🟠 High",
+                "🟡": "🟡 Medium",
+                "🟢": "🟢 Low",
+                "🔵": "🔵 Nice to Have"
+              };
+              for (const [emoji, name] of Object.entries(priorityMap)) {
+                if (body.includes(emoji)) {
+                  fields.priority = name;
+                  break;
+                }
+              }
+              
+              // Sprint
+              const sprintMatch = body.match(/Sprint:\s*([^\n|*]+)/);
+              if (sprintMatch) {
+                fields.sprint = sprintMatch[1].trim();
+              }
+              
+              return fields;
+            }
+            
+            const fields = parseFields(body, title);
+            console.log("Parsed fields:", fields);
+            
+            if (!fields.epic && !fields.priority && !fields.storyPoints && !fields.sprint) {
+              console.log("No fields to update, skipping");
+              return;
+            }
+            
+            // Find the project item for this issue
+            const projectQuery = `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    projectItems(first: 10) {
+                      nodes {
+                        id
+                        project {
+                          id
+                          number
+                          title
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+            
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const projectResult = await github.graphql(projectQuery, {
+              owner: owner,
+              repo: repo,
+              number: issue.number
+            });
+            
+            const projectItems = projectResult.repository.issue.projectItems.nodes;
+            if (projectItems.length === 0) {
+              console.log("Issue not added to any project yet, skipping");
+              return;
+            }
+            
+            // Find our specific project (Roadmap v2.0)
+            const roadmapProject = projectItems.find(item => 
+              item.project.title === "Roadmap v2.0" || item.project.number === 3
+            );
+            
+            if (!roadmapProject) {
+              console.log("Issue not in Roadmap v2.0 project, skipping");
+              return;
+            }
+            
+            const projectId = roadmapProject.project.id;
+            const itemId = roadmapProject.id;
+            
+            console.log(`Found project item: ${itemId} in project ${projectId}`);
+            
+            // Get project fields
+            const fieldsQuery = `
+              query($projectId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2Field {
+                          id
+                          name
+                        }
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                          options {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+            
+            const fieldsResult = await github.graphql(fieldsQuery, { projectId });
+            const projectFields = fieldsResult.node.fields.nodes;
+            
+            // Build field map
+            const fieldMap = {};
+            for (const field of projectFields) {
+              if (field && field.name) {
+                fieldMap[field.name] = {
+                  id: field.id,
+                  options: field.options ? Object.fromEntries(field.options.map(opt => [opt.name, opt.id])) : null
+                };
+              }
+            }
+            
+            console.log("Available fields:", Object.keys(fieldMap));
+            
+            // Update fields
+            const updates = [];
+            
+            // Update Story Points
+            if (fields.storyPoints && fieldMap["Story Points"]) {
+              updates.push({
+                fieldId: fieldMap["Story Points"].id,
+                value: { number: fields.storyPoints }
+              });
+            }
+            
+            // Update Epic
+            if (fields.epic && fieldMap["Epic"] && fieldMap["Epic"].options[fields.epic]) {
+              updates.push({
+                fieldId: fieldMap["Epic"].id,
+                value: { singleSelectOptionId: fieldMap["Epic"].options[fields.epic] }
+              });
+            }
+            
+            // Update Priority
+            if (fields.priority && fieldMap["Priority"] && fieldMap["Priority"].options[fields.priority]) {
+              updates.push({
+                fieldId: fieldMap["Priority"].id,
+                value: { singleSelectOptionId: fieldMap["Priority"].options[fields.priority] }
+              });
+            }
+            
+            // Update Sprint
+            if (fields.sprint && fieldMap["Sprint"] && fieldMap["Sprint"].options[fields.sprint]) {
+              updates.push({
+                fieldId: fieldMap["Sprint"].id,
+                value: { singleSelectOptionId: fieldMap["Sprint"].options[fields.sprint] }
+              });
+            }
+            
+            console.log(`Updating ${updates.length} fields...`);
+            
+            // Apply updates
+            for (const update of updates) {
+              const mutation = `
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: ProjectV2FieldValue!) {
+                  updateProjectV2ItemFieldValue(
+                    input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: $value
+                    }
+                  ) {
+                    projectV2Item {
+                      id
+                    }
+                  }
+                }
+              `;
+              
+              await github.graphql(mutation, {
+                projectId: projectId,
+                itemId: itemId,
+                fieldId: update.fieldId,
+                value: update.value
+              });
+              
+              console.log(`✅ Updated field ${update.fieldId}`);
+            }
+            
+            console.log("✅ All fields synced successfully!");
