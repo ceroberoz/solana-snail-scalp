@@ -112,10 +112,16 @@ jobs:
                 }
               }
               
-              // Sprint
+              // Sprint - handle various formats
               const sprintMatch = body.match(/Sprint:\s*([^\n|*]+)/);
               if (sprintMatch) {
                 fields.sprint = sprintMatch[1].trim();
+              } else {
+                // Try alternate format: **Sprint:** Sprint X-Y
+                const sprintMatch2 = body.match(/\*\*Sprint:\*\*\s*([^\n|*]+)/);
+                if (sprintMatch2) {
+                  fields.sprint = sprintMatch2[1].trim();
+                }
               }
               
               return fields;
