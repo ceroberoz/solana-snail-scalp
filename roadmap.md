@@ -2,8 +2,7 @@
 
 **Version:** 1.0-forex  
 **Last Updated:** 2026-02-26  
-**Methodology:** Scrum/Agile  
-**Sprint Duration:** 2 weeks  
+**Focus:** USD/SGD Primary + USD/MYR Secondary  
 **Origin:** Ported from [solana-snail-scalp](https://github.com/ceroberoz/solana-snail-scalp) @ crypto-v2.0-stable
 
 ---
@@ -11,11 +10,11 @@
 ## 📋 Table of Contents
 
 1. [Product Vision](#product-vision)
-2. [Currency Strategy](#currency-strategy)
-3. [Epics & User Stories](#epics--user-stories)
-4. [Sprint Planning](#sprint-planning)
-5. [Data Architecture](#data-architecture)
-6. [Definition of Done](#definition-of-done)
+2. [Phase 1: USD/SGD Focus](#phase-1-usdsgd-focus)
+3. [Phase 2: Multi-Pair Expansion](#phase-2-multi-pair-expansion)
+4. [Epics & User Stories](#epics--user-stories)
+5. [Sprint Planning](#sprint-planning)
+6. [Data Architecture](#data-architecture)
 7. [Risk Management](#risk-management)
 
 ---
@@ -23,57 +22,92 @@
 ## 🎯 Product Vision
 
 ### Vision Statement
-> Build an intelligent, adaptive forex scalping bot focused on SEA (Southeast Asian) currency exposure, starting with USD/SGD as the primary pair, with institutional-grade risk management adapted for Asian market volatility.
+> Build an intelligent, adaptive forex scalping bot focused on Southeast Asian currency exposure, with **USD/SGD as the primary pair** and **USD/MYR as secondary**, featuring institutional-grade risk management optimized for Asian market volatility.
 
-### Target Currency Pairs
+### Target Pairs
 
-| Priority | Pair | Status | Rationale |
-|----------|------|--------|-----------|
-| **P1** | **USD/SGD** | ✅ Primary | Tight spreads (2-5 pips), high liquidity, freely floating |
-| **P2** | **USD/MYR** | ⚠️ Secondary | Available via IBKR, wider spreads (20-50 pips) |
-| **P3** | **USD/THB** | 🔮 Future | Limited broker availability |
-| **❌** | **USD/IDR** | ❌ Excluded | High spreads (50-200 pips), capital controls, low liquidity |
+| Pair | Phase | Priority | Spreads | Broker | Status |
+|------|-------|----------|---------|--------|--------|
+| **USD/SGD** | Phase 1 | 🔴 Primary | 2-5 pips | OANDA, IG, IBKR | ✅ Available |
+| **USD/MYR** | Phase 2 | 🟠 Secondary | 20-50 pips | Interactive Brokers | ⚠️ Limited |
+| USD/THB | Future | 🔮 Tertiary | 30-80 pips | Rare | ❌ Not planned |
+| USD/IDR | Excluded | ❌ | 50-200 pips | Local only | ❌ Excluded |
 
-### Why USD/SGD as Primary?
-- ✅ **Liquidity**: Singapore's financial hub status
-- ✅ **Spreads**: 2-5 pips (comparable to EUR/USD)
-- ✅ **Volatility**: Moderate, suitable for scalping
-- ✅ **Availability**: All major brokers (OANDA, IG, IBKR)
-- ✅ **Asian exposure**: Correlated with SEA markets
+### Why These Pairs?
+
+**USD/SGD (Primary)**
+- ✅ Tightest spreads among SEA currencies (2-5 pips)
+- ✅ High liquidity - Singapore is Asia's forex hub
+- ✅ Freely floating - no heavy central bank intervention
+- ✅ Available on all major retail brokers
+- ✅ 24-hour trading with Asian session focus
+
+**USD/MYR (Secondary)**
+- ✅ SEA diversification
+- ⚠️ Wider spreads (20-50 pips) - swing trading better than scalping
+- ⚠️ BNM intervention risk - managed float
+- ✅ Available via Interactive Brokers (not OANDA)
 
 ---
 
-## 💱 Currency Strategy
+## 💱 Phase 1: USD/SGD Focus (Weeks 1-8)
 
-### Phase 1: USD/SGD Only (Weeks 1-8)
+### Phase 1 Objectives
 ```
-Focus: Single pair mastery
-Capital Allocation: 100% to USD/SGD
-Strategy: Mean reversion on 15m/1h timeframes
-Target: 20-30 pips per winning trade
-```
-
-### Phase 2: Multi-SEA (Weeks 9-16)
-```
-Focus: Portfolio diversification
-Capital Allocation: 
-  - USD/SGD: 60%
-  - USD/MYR: 30%
-  - Cash: 10%
-Strategy: Correlation-aware position sizing
+Single Pair Mastery:
+├── Pair: USD/SGD only
+├── Capital: 100% allocation
+├── Timeframe: 15m primary, 1h confirmation  
+├── Target: 20-30 pips per winner
+└── Broker: OANDA (best USD/SGD spreads)
 ```
 
-### Phase 3: Expansion (Future)
+### Phase 1 Success Criteria
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Backtest Win Rate | >50% | 2-year historical |
+| Avg Pips/Trade | 20-30 pips | Backtest analysis |
+| Max Drawdown | <5% | Equity curve |
+| Cache Hit Rate | >90% | Data provider logs |
+| Paper Trading | 2 weeks | OANDA practice |
+
+### Phase 1 Exclusions
+- ❌ No multi-pair trading
+- ❌ No USD/MYR yet
+- ❌ No correlation management needed (single pair)
+
+---
+
+## 💱 Phase 2: Multi-Pair Expansion (Weeks 9-16)
+
+### Phase 2 Objectives
 ```
-Consider: USD/THB, SGD/MYR crosses
-Requirement: Proven profitability on Phase 1-2
+Add USD/MYR for Diversification:
+├── Pairs: USD/SGD + USD/MYR
+├── Capital Allocation:
+│   ├── USD/SGD: 70% (primary, tighter spreads)
+│   └── USD/MYR: 30% (secondary, wider spreads)
+├── Strategy: Correlation-aware sizing
+│   └── If correlation >0.85: trade only one
+└── Broker: Interactive Brokers (supports both)
 ```
+
+### USD/MYR Specific Considerations
+
+| Aspect | USD/SGD | USD/MYR |
+|--------|---------|---------|
+| **Spread** | 2-5 pips | 20-50 pips |
+| **Strategy** | Scalping (15m) | Swing (1h/4h) |
+| **Target** | 20-30 pips | 50-100 pips |
+| **Stop** | 25 pips | 40-60 pips |
+| **Hold Time** | 2-8 hours | 1-3 days |
+| **Intervention Risk** | Low | Medium (BNM) |
 
 ---
 
 ## 📦 Epics & User Stories
 
-### Epic M0: Infrastructure Migration
+### Epic M0: Phase 1 Foundation (USD/SGD)
 **Priority:** 🔴 Critical  
 **Story Points:** 34
 
@@ -81,216 +115,184 @@ Requirement: Proven profitability on Phase 1-2
 **Status:** ✅ Done
 ```
 As a developer
-I want a clean forex branch forked from crypto-v2.0-stable
-So that I can adapt the codebase for forex trading
+I want a clean forex branch forked from crypto
+So that I can build the USD/SGD bot
 
 Acceptance Criteria:
-- Branch forex/base created from main
-- Tag crypto-v2.0-stable preserved
-- Remove crypto-specific files
+- Branch forex/base created from crypto-v2.0-stable
+- Remove crypto-specific code (Jupiter, Solana)
 - Update README for forex focus
 
 Story Points: 5
 ```
 
-#### M0.2: Yahoo Finance Data Integration with Caching
+#### M0.2: USD/SGD Data Pipeline with Caching
 **Status:** 📝 Todo
 ```
 As a trader
-I want to fetch USD/SGD data from Yahoo Finance with intelligent caching
-So that I can backtest without hitting rate limits
+I want USD/SGD data from Yahoo Finance with caching
+So that I can backtest without API limits
 
 Acceptance Criteria:
-- Implement yfinance client for USD/SGD (=USDSGD=X)
-- Disk-based cache with SQLite backend
-- Cache TTL: 15 minutes for recent data, permanent for historical
-- Rate limit handling: max 100 requests/hour with exponential backoff
-- Fallback to OANDA historical API if Yahoo fails
-
-Technical Notes:
-- Yahoo Rate Limit: ~2,000 requests/hour (~48,000/day)
-- yfinance built-in cache: ~/.cache/py-yfinance/
-- Additional diskcache for persistence across restarts
-- User-agent rotation to avoid 429 errors
+- yfinance integration for USDSGD=X
+- Disk cache (SQLite) with 90%+ hit rate
+- Rate limit: max 100 requests/hour
+- 2-year historical data pre-fetched
+- Cache location: data/cache/usd_sgd.db
 
 Story Points: 13
 ```
 
-#### M0.3: Multi-Source Data Architecture
+#### M0.3: OANDA Live Data for USD/SGD
 **Status:** 📝 Todo
 ```
 As a trader
-I want a unified data interface supporting multiple sources
-So that I can switch between Yahoo (backtesting) and OANDA (live)
+I want live USD/SGD prices from OANDA
+So that I can paper trade and go live
 
 Acceptance Criteria:
-- Abstract DataProvider base class
-- YahooFinanceProvider (cached, for backtesting)
-- OandaProvider (live, for paper/live trading)
-- MockProvider (for unit testing)
-- Automatic source selection based on mode
+- OANDA REST API for USD_SGD instrument
+- Practice account integration
+- Real-time price streaming
+- Order execution API
 
 Story Points: 8
 ```
 
-#### M0.4: Convert Position Sizing to Lots
+#### M0.4: USD/SGD Position Sizing
 **Status:** 📝 Todo
 ```
 As a trader
-I want position size in lots not USD amounts
-So that I can use standard forex risk management
+I want lot-based sizing for USD/SGD
+So that I can manage risk properly
 
 Acceptance Criteria:
-- Support micro lots (0.01) minimum
-- Calculate pip value per pair (SGD different from MYR)
-- Account for leverage in margin calculation
+- Micro lots (0.01) as minimum
+- Pip value: ~$7.40 per pip per standard lot
 - Risk per trade: 1-2% of account
+- Position size formula: (Risk $) / (Stop pips × Pip value)
+
+Example:
+- Account: $1,000
+- Risk: 2% = $20
+- Stop: 25 pips
+- Pip value: $0.074 (micro lot)
+- Position: $20 / (25 × $0.074) = 10.8 micro lots → 0.11
 
 Story Points: 5
 ```
 
-#### M0.5: USD/SGD Specific Configuration
+#### M0.5: USD/SGD Strategy Parameters
 **Status:** 📝 Todo
 ```
 As a trader
-I want USD/SGD optimized default parameters
+I want USD/SGD optimized parameters
 So that the strategy fits SGD volatility
 
 Acceptance Criteria:
+- BB period: 20, Std: 2.0
 - BB tolerance: 3 pips (0.0003)
-- Partial scale: 20, 40, 70 pips
-- Stop loss: 25 pips
-- Take profit targets adjusted for SGD volatility
-- Spread filter: max 5 pips
+- RSI range: 20-40
+- Partial take profits: 20, 40, 70 pips
+- Stop loss: 25 pips (ATR-based)
+- Max spread: 5 pips (skip if wider)
+- Max hold: 8 hours
 
 Story Points: 3
 ```
 
 ---
 
-### Epic M1: Yahoo Finance Caching System
-**Priority:** 🔴 Critical  
+### Epic M1: Phase 2 - Add USD/MYR
+**Priority:** 🟠 High  
 **Story Points:** 21
 
-#### M1.1: Persistent Cache Implementation
+#### M1.1: USD/MYR Data Integration
+**Status:** 📝 Todo
+```
+As a trader
+I want USD/MYR data for backtesting
+So that I can analyze this secondary pair
+
+Acceptance Criteria:
+- Yahoo Finance: USDMYR=X
+- Interactive Brokers data feed
+- Same caching system as USD/SGD
+- 2-year historical pre-fetched
+
+Story Points: 5
+```
+
+#### M1.2: Multi-Pair Architecture
 **Status:** 📝 Todo
 ```
 As a developer
-I want a persistent disk cache for Yahoo Finance data
-So that I avoid repeated API calls
+I want to support both USD/SGD and USD/MYR
+So that the bot can trade multiple pairs
 
 Acceptance Criteria:
-- SQLite-based cache with diskcache library
-- Cache keys: (ticker, interval, date_range)
-- TTL strategy:
-  - Intraday data: 15 minutes
-  - Historical data: 7 days
-  - 5+ year old data: permanent
-- Cache location: data/cache/yahoo.db
-
-Implementation:
-```python
-from diskcache import Cache
-import yfinance as yf
-
-class CachedYahooProvider:
-    def __init__(self, cache_dir='data/cache/yahoo'):
-        self.cache = Cache(cache_dir)
-        self.cache_limit = 100  # requests per hour
-        
-    def download(self, ticker, period, interval):
-        cache_key = f"{ticker}_{period}_{interval}"
-        
-        # Check cache first
-        if cache_key in self.cache:
-            data, timestamp = self.cache[cache_key]
-            if self._is_fresh(timestamp, interval):
-                return data
-        
-        # Rate limit check
-        self._respect_rate_limit()
-        
-        # Fetch from Yahoo
-        data = yf.download(ticker, period=period, interval=interval)
-        
-        # Store in cache
-        self.cache[cache_key] = (data, datetime.now())
-        return data
-```
+- Pair configuration in config.yaml
+- Separate parameters per pair
+- Portfolio capital allocation
+- Max 2 concurrent positions (one per pair)
 
 Story Points: 8
 ```
 
-#### M1.2: Rate Limit Protection
+#### M1.3: USD/MYR Specific Parameters
 **Status:** 📝 Todo
 ```
 As a trader
-I want automatic rate limit protection
-So that I don't get blocked by Yahoo
+I want USD/MYR optimized for wider spreads
+So that I can profit despite higher costs
 
 Acceptance Criteria:
-- Track requests per hour (max 100 for safety)
-- Exponential backoff on 429 errors
-- User-agent rotation (5 rotating agents)
-- Proxy support for emergency bypass
-- Automatic retry with jitter
+- Timeframe: 1h (not 15m - too noisy with spread)
+- Target: 50-100 pips (not 20-30)
+- Stop: 40-60 pips
+- Max spread: 50 pips
+- Min hold: 4 hours (avoid noise)
+- BNM intervention awareness
 
 Story Points: 5
 ```
 
-#### M1.3: Historical Data Pre-fetching
+#### M1.4: Correlation Monitor (SGD vs MYR)
 **Status:** 📝 Todo
 ```
 As a trader
-I want to pre-fetch and cache 2 years of historical data
-So that backtests run instantly
+I want to know when SGD and MYR are correlated
+So that I don't double my USD exposure
 
 Acceptance Criteria:
-- One-time download script: scripts/download_history.py
-- Downloads USD/SGD 2 years 15m data
-- Stores in data/historical/usd_sgd_15m.parquet
-- Incremental updates (append new data)
-- Compression for storage efficiency
-
-Story Points: 5
-```
-
-#### M1.4: Cache Analytics & Monitoring
-**Status:** 📝 Todo
-```
-As a developer
-I want cache hit/miss analytics
-So that I can optimize caching strategy
-
-Acceptance Criteria:
-- Track cache hit rate
-- Log API calls per hour
-- Alert if approaching rate limit
-- Cache size monitoring
-- Cleanup old cache entries
+- Calculate USD/SGD vs USD/MYR correlation
+- Lookback: 20 periods (1h)
+- Threshold: 0.85
+- If correlated >0.85: trade only the tighter spread pair (SGD)
+- Alert when correlation breaks down
 
 Story Points: 3
 ```
 
 ---
 
-### Epic M2: OANDA Live Integration
-**Priority:** 🟠 High  
-**Story Points:** 34
+### Epic M2: OANDA Integration (USD/SGD)
+**Priority:** 🔴 Critical  
+**Story Points:** 26
 
-#### M2.1: OANDA REST API Client
+#### M2.1: OANDA USD/SGD Trading
 **Status:** 📝 Todo
 ```
 As a trader
-I want to execute trades through OANDA API
-So that I can trade USD/SGD with real money
+I want to trade USD/SGD through OANDA
+So that I can execute with tight spreads
 
 Acceptance Criteria:
-- OANDA v20 REST API integration
-- Practice account support
-- Market order execution
+- OANDA v20 API integration
+- USD_SGD instrument support
+- Market orders
 - Position tracking
-- Error handling and retries
+- Error handling
 
 Story Points: 13
 ```
@@ -299,70 +301,54 @@ Story Points: 13
 **Status:** 📝 Todo
 ```
 As a trader
-I want a paper trading mode with OANDA practice account
-So that I can validate the strategy risk-free
+I want OANDA paper trading for USD/SGD
+So that I can validate before going live
 
 Acceptance Criteria:
-- Use OANDA practice environment
-- Virtual PnL tracking
-- Same logic as live mode
-- 2-week minimum paper trading
-- Performance report generation
+- Practice environment
+- Virtual balance tracking
+- Same execution logic as live
+- 2-week minimum paper period
 
 Story Points: 8
 ```
 
-#### M2.3: Real-Time Price Streaming
+#### M2.3: Interactive Brokers (USD/MYR)
 **Status:** 📝 Todo
 ```
 As a trader
-I want WebSocket price feeds for USD/SGD
-So that I get sub-second price updates
+I want Interactive Brokers for USD/MYR
+So that I can trade the secondary pair
 
 Acceptance Criteria:
-- OANDA streaming API
-- Reconnect on disconnect
-- Heartbeat monitoring
-- Fallback to polling every 5 seconds
+- IBKR API integration
+- USD.MYR instrument
+- Alternative to OANDA (OANDA doesn't offer MYR)
+- Paper trading support
 
-Story Points: 8
-```
-
-#### M2.4: Multi-Broker Support Framework
-**Status:** 📝 Todo
-```
-As a developer
-I want an abstract broker interface
-So that I can support IG, IBKR later
-
-Acceptance Criteria:
-- Broker base class
-- OANDA implementation
-- Mock broker for testing
-- Configuration-driven selection
+Note: Only needed for Phase 2
 
 Story Points: 5
 ```
 
 ---
 
-### Epic M3: SEA-Specific Risk Management
+### Epic M3: SEA Risk Management
 **Priority:** 🟠 High  
 **Story Points:** 21
 
-#### M3.1: Asian Session Detection
+#### M3.1: Asian Session Trading
 **Status:** 📝 Todo
 ```
 As a trader
-I want the bot to favor Asian session trading
-So that I trade when USD/SGD is most liquid
+I want to focus on Asian session for USD/SGD
+So that I trade when SGD is most liquid
 
 Acceptance Criteria:
-- Asian session: 00:00-09:00 UTC (Singapore active)
-- London session: 08:00-17:00 UTC
-- NY session: 13:00-22:00 UTC
-- Higher position size during Asian session
-- Configurable session preferences
+- Asian session: 00:00-09:00 UTC
+- Higher position size during Asian hours
+- Reduce size in London/NY overlap (volatility)
+- Session-based time filters
 
 Story Points: 5
 ```
@@ -372,45 +358,45 @@ Story Points: 5
 ```
 As a trader
 I want positions closed before weekend
-So that I avoid gap risk on Sunday open
+So that I avoid Sunday gap risk
 
 Acceptance Criteria:
 - Close all positions Friday 20:00 UTC
 - No new entries after Friday 18:00 UTC
-- Resume trading Sunday 22:00 UTC
-- Special handling for Asian holidays
+- Resume Sunday 22:00 UTC
 
 Story Points: 3
 ```
 
-#### M3.3: High-Impact News Filter
+#### M3.3: News Filter (MAS, BNM, US)
 **Status:** 📝 Todo
 ```
 As a trader
-I want to avoid trading during high-impact events
-So that I don't get caught in volatility spikes
+I want to avoid trading during central bank events
+So that I don't get caught in volatility
 
 Acceptance Criteria:
-- Events: US NFP, FOMC, Singapore GDP, MAS policy
-- Pause 30 min before, 30 min after
-- ForexFactory calendar integration
-- Configurable event sensitivity
+- Singapore MAS policy announcements
+- Malaysia BNM rate decisions
+- US NFP, FOMC
+- Pause: 30 min before/after
+- ForexFactory calendar API
 
 Story Points: 8
 ```
 
-#### M3.4: Correlation Management (USD/SGD vs USD/MYR)
+#### M3.4: SGD-Specific Risk (MAS Intervention)
 **Status:** 📝 Todo
 ```
 As a trader
-I want to manage correlation between SEA pairs
-So that I don't double-risk on USD moves
+I want to know if MAS is intervening
+So that I can adjust my strategy
 
 Acceptance Criteria:
-- Track USD/SGD vs USD/MYR correlation
-- Correlation threshold: 0.85
-- Max 1 position if correlated
-- Correlation lookback: 20 periods
+- Monitor SGD NEER (Nominal Effective Exchange Rate)
+- Alert if MAS signals policy shift
+- Widen stops during intervention periods
+- Log unusual price action
 
 Story Points: 5
 ```
@@ -419,361 +405,265 @@ Story Points: 5
 
 ## 🗓️ Sprint Planning
 
-### Sprint M0: Foundation (Weeks 1-2)
-**Theme:** Data Infrastructure
+### Sprint M0: USD/SGD Data (Weeks 1-2)
+**Theme:** Single Pair Data Infrastructure
 
-| User Story | Points | Owner |
-|------------|--------|-------|
-| M0.1: Bootstrap Repository | 5 | ✅ Done |
-| M0.2: Yahoo Finance + Caching | 13 | TBD |
-| M0.3: Multi-Source Architecture | 8 | TBD |
+| Story | Points | Owner |
+|-------|--------|-------|
+| M0.1: Bootstrap | 5 | ✅ Done |
+| M0.2: Yahoo + Cache | 13 | TBD |
+| M0.3: OANDA Data | 8 | TBD |
 | **Total** | **26** | |
 
-**Sprint Goal:** Download and cache 2 years USD/SGD data
+**Goal:** Download 2-year USD/SGD history, cache working
 
 **Deliverables:**
-- Cached historical data in `data/historical/`
-- Cache hit rate > 90%
-- No 429 errors during development
+- `data/historical/usd_sgd_15m.parquet` (2 years)
+- Cache hit rate >90%
+- OANDA connection tested
 
 ---
 
-### Sprint M1: Caching & Backtesting (Weeks 3-4)
-**Theme:** Reliable Data Flow
+### Sprint M1: USD/SGD Strategy (Weeks 3-4)
+**Theme:** Single Pair Backtesting
 
-| User Story | Points | Owner |
-|------------|--------|-------|
-| M1.1: Persistent Cache | 8 | TBD |
-| M1.2: Rate Limit Protection | 5 | TBD |
-| M1.3: Historical Pre-fetch | 5 | TBD |
-| M0.4: Position Sizing (Lots) | 5 | TBD |
-| M0.5: USD/SGD Config | 3 | TBD |
-| **Total** | **26** | |
+| Story | Points | Owner |
+|-------|--------|-------|
+| M0.4: Position Sizing | 5 | TBD |
+| M0.5: SGD Parameters | 3 | TBD |
+| M1.1: Backtest Engine | 8 | TBD |
+| M1.2: Performance Report | 5 | TBD |
+| **Total** | **21** | |
 
-**Sprint Goal:** Run first USD/SGD backtest with cached data
+**Goal:** First profitable USD/SGD backtest
 
 **Deliverables:**
-- 2-year backtest completed
-- Performance report generated
-- Cache system validated
+- Backtest report (win rate, pips, drawdown)
+- Strategy parameters validated
+- Equity curve generated
 
 ---
 
-### Sprint M2: OANDA Integration (Weeks 5-6)
-**Theme:** Live Trading Infrastructure
+### Sprint M2: OANDA Paper Trading (Weeks 5-6)
+**Theme:** Live Infrastructure
 
-| User Story | Points | Owner |
-|------------|--------|-------|
-| M2.1: OANDA API Client | 13 | TBD |
-| M2.2: Paper Trading | 8 | TBD |
-| M2.4: Multi-Broker Framework | 5 | TBD |
-| **Total** | **26** | |
+| Story | Points | Owner |
+|-------|--------|-------|
+| M2.1: OANDA Trading | 13 | TBD |
+| M2.2: Paper Mode | 8 | TBD |
+| M3.2: Weekend Protection | 3 | TBD |
+| **Total** | **24** | |
 
-**Sprint Goal:** Execute first paper trade on USD/SGD
+**Goal:** First paper trade on OANDA USD/SGD
 
 **Deliverables:**
-- OANDA practice account connected
-- First paper trade executed
-- Position tracking working
+- Paper account connected
+- First trade executed
+- Weekend close tested
 
 ---
 
 ### Sprint M3: SEA Optimization (Weeks 7-8)
 **Theme:** Asian Market Adaptation
 
-| User Story | Points | Owner |
-|------------|--------|-------|
-| M3.1: Asian Session Detection | 5 | TBD |
-| M3.2: Weekend Gap Protection | 3 | TBD |
+| Story | Points | Owner |
+|-------|--------|-------|
+| M3.1: Asian Session | 5 | TBD |
 | M3.3: News Filter | 8 | TBD |
-| M2.3: Real-Time Streaming | 8 | TBD |
-| **Total** | **24** | |
+| M3.4: MAS Monitoring | 5 | TBD |
+| M2.3: Real-Time Stream | 5 | TBD |
+| **Total** | **23** | |
 
-**Sprint Goal:** 2-week paper trading with no incidents
+**Goal:** 2-week paper trading, Phase 1 complete
 
 **Deliverables:**
-- Session-aware trading active
-- Weekend protection working
-- News filter tested
+- Session-based sizing active
+- News filter working
+- Phase 1 performance validated
+
+---
+
+### Sprint M4: Add USD/MYR (Weeks 9-10)
+**Theme:** Phase 2 - Multi-Pair
+
+| Story | Points | Owner |
+|-------|--------|-------|
+| M1.1: MYR Data | 5 | TBD |
+| M1.2: Multi-Pair Arch | 8 | TBD |
+| M1.3: MYR Parameters | 5 | TBD |
+| M2.3: IBKR Setup | 5 | TBD |
+| **Total** | **23** | |
+
+**Goal:** USD/MYR integrated, dual-pair backtest
+
+---
+
+### Sprint M5: Correlation & Portfolio (Weeks 11-12)
+**Theme:** Smart Multi-Pair
+
+| Story | Points | Owner |
+|-------|--------|-------|
+| M1.4: Correlation Monitor | 3 | TBD |
+| M5.1: Portfolio Sizing | 8 | TBD |
+| M5.2: Dual Paper Trading | 8 | TBD |
+| **Total** | **19** | |
+
+**Goal:** Both pairs trading with correlation awareness
 
 ---
 
 ## 🏛️ Data Architecture
 
-### Yahoo Finance Integration with Caching
+### Provider Hierarchy
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Data Flow Architecture                   │
-└─────────────────────────────────────────────────────────────┘
-
-  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-  │   Backtest   │────▶│ YahooFinance │────▶│  Disk Cache  │
-  │    Mode      │     │   Provider   │     │  (SQLite)    │
-  └──────────────┘     └──────────────┘     └──────┬───────┘
-         │                                         │
-         │    Cache Hit ────────────────────────────┘
-         │    (90%+ hit rate)
-         │
-         ▼    Cache Miss
-  ┌──────────────┐
-  │  Yahoo API   │◀── Rate Limit Control (100 req/hr)
-  │  (External)  │◀── User-Agent Rotation
-  └──────────────┘
-
-  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-  │  Live/Paper  │────▶│   OANDA      │────▶│   OANDA      │
-  │    Mode      │     │   Provider   │     │   Servers    │
-  └──────────────┘     └──────────────┘     └──────────────┘
-         │
-         ▼
-  ┌──────────────┐
-  │  Live Cache  │◀── 15min TTL for recent data
-  │   (SQLite)   │
-  └──────────────┘
+┌─────────────────────────────────────────────────────┐
+│                 DataProvider (Abstract)              │
+├─────────────────────────────────────────────────────┤
+│  + download(symbol, timeframe)                      │
+│  + get_latest(symbol)                               │
+│  + is_available(symbol)                             │
+└─────────────────────────────────────────────────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+        ▼                 ▼                 ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│   Yahoo      │  │    OANDA     │  │ Interactive  │
+│  Finance     │  │   (Live)     │  │   Brokers    │
+│ (Cached)     │  │              │  │   (MYR)      │
+└──────────────┘  └──────────────┘  └──────────────┘
+       │                  │                  │
+       ▼                  ▼                  ▼
+   USD/SGD             USD/SGD            USD/MYR
+   USD/MYR             (Live only)        (Live only)
+   (Backtest)
 ```
 
-### Cache Configuration
+### Pair Configuration
 
 ```python
-# config/data_config.py
-DATA_CONFIG = {
-    "yahoo": {
-        "cache_dir": "data/cache/yahoo",
-        "cache_size_limit": 1_000_000_000,  # 1GB
-        "rate_limit_per_hour": 100,  # Conservative
-        "ttl": {
-            "1m": 900,      # 15 minutes
-            "15m": 3600,    # 1 hour
-            "1h": 86400,    # 1 day
-            "1d": 604800,   # 7 days
-        },
-        "user_agents": [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-            # ... 5 total rotating
-        ]
-    },
-    "oanda": {
-        "practice_url": "https://api-fxpractice.oanda.com",
-        "live_url": "https://api-fxtrade.oanda.com",
-        "streaming_url": "https://stream-fxpractice.oanda.com",
-    },
-    "pairs": {
-        "USD_SGD": {
-            "yahoo_ticker": "USDSGD=X",
-            "oanda_instrument": "USD_SGD",
-            "pip_decimal": 4,
-            "spread_max": 5,  # pips
-        },
-        "USD_MYR": {
-            "yahoo_ticker": "USDMYR=X",
-            "oanda_instrument": "USD_MYR",
-            "pip_decimal": 4,
-            "spread_max": 50,  # pips
-            "note": "Limited broker availability"
-        }
-    }
-}
+# config/pairs.yaml
+pairs:
+  USD_SGD:
+    name: "USD/SGD"
+    phase: 1
+    priority: primary
+    yahoo_ticker: "USDSGD=X"
+    oanda_instrument: "USD_SGD"
+    ibkr_symbol: None  # Not needed, use OANDA
+    
+    # Trading parameters
+    timeframe: "15m"
+    spread_max_pips: 5
+    target_pips: [20, 40, 70]
+    stop_pips: 25
+    max_hold_hours: 8
+    
+    # Strategy
+    bb_period: 20
+    bb_std: 2.0
+    rsi_period: 14
+    rsi_oversold: [20, 40]
+    
+    # Position sizing
+    pip_value_usd: 0.074  # per micro lot
+    risk_per_trade_pct: 2.0
+    max_position_lots: 1.0
+
+  USD_MYR:
+    name: "USD/MYR"
+    phase: 2
+    priority: secondary
+    yahoo_ticker: "USDMYR=X"
+    oanda_instrument: None  # Not available
+    ibkr_symbol: "USD.MYR"
+    
+    # Trading parameters (wider spreads)
+    timeframe: "1h"
+    spread_max_pips: 50
+    target_pips: [50, 100, 150]
+    stop_pips: 60
+    max_hold_hours: 72
+    
+    # Strategy (adjusted for volatility)
+    bb_period: 20
+    bb_std: 2.5  # Wider bands
+    rsi_period: 14
+    rsi_oversold: [20, 40]
+    
+    # Position sizing
+    pip_value_usd: 0.022  # per micro lot (approx)
+    risk_per_trade_pct: 1.5  # Lower risk
+    max_position_lots: 0.5
+
+portfolio:
+  max_correlation: 0.85
+  allocation:
+    USD_SGD: 0.70
+    USD_MYR: 0.30
 ```
 
-### Cache Implementation Details
+### Cache Strategy per Pair
 
-```python
-# src/data/yahoo_provider.py
-from diskcache import Cache
-import yfinance as yf
-import pandas as pd
-from datetime import datetime, timedelta
-import time
-import random
-
-class YahooFinanceProvider:
-    """
-    Yahoo Finance data provider with intelligent caching.
-    
-    Rate Limit Strategy:
-    - Max 100 requests/hour (well below 2,000 limit)
-    - Exponential backoff on 429 errors
-    - User-agent rotation
-    - Persistent disk cache
-    """
-    
-    def __init__(self, cache_dir='data/cache/yahoo', max_requests_per_hour=100):
-        self.cache = Cache(cache_dir)
-        self.max_requests = max_requests_per_hour
-        self.request_times = []
-        self.user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-        ]
-        
-    def download(self, ticker: str, period: str = "1y", interval: str = "15m") -> pd.DataFrame:
-        """Download data with caching and rate limiting."""
-        cache_key = f"{ticker}_{period}_{interval}"
-        
-        # Check cache
-        cached = self._get_from_cache(cache_key, interval)
-        if cached is not None:
-            return cached
-        
-        # Rate limit check
-        self._respect_rate_limit()
-        
-        # Download with user-agent rotation
-        try:
-            data = yf.download(
-                ticker, 
-                period=period, 
-                interval=interval,
-                progress=False,
-                headers={'User-Agent': random.choice(self.user_agents)}
-            )
-            
-            # Store in cache
-            self._store_in_cache(cache_key, data, interval)
-            self._log_request()
-            
-            return data
-            
-        except Exception as e:
-            if "429" in str(e):
-                # Rate limited - wait and retry
-                time.sleep(60)
-                return self.download(ticker, period, interval)
-            raise
-    
-    def _get_from_cache(self, key: str, interval: str) -> pd.DataFrame:
-        """Retrieve from cache if not expired."""
-        if key not in self.cache:
-            return None
-            
-        data, timestamp = self.cache[key]
-        ttl = self._get_ttl(interval)
-        
-        if datetime.now() - timestamp < ttl:
-            return data
-        return None
-    
-    def _store_in_cache(self, key: str, data: pd.DataFrame, interval: str):
-        """Store data with timestamp."""
-        self.cache[key] = (data, datetime.now())
-    
-    def _get_ttl(self, interval: str) -> timedelta:
-        """Get TTL based on data granularity."""
-        ttl_map = {
-            '1m': timedelta(minutes=15),
-            '15m': timedelta(hours=1),
-            '1h': timedelta(days=1),
-            '1d': timedelta(days=7),
-        }
-        return ttl_map.get(interval, timedelta(hours=1))
-    
-    def _respect_rate_limit(self):
-        """Ensure we don't exceed rate limit."""
-        now = datetime.now()
-        hour_ago = now - timedelta(hours=1)
-        
-        # Clean old requests
-        self.request_times = [t for t in self.request_times if t > hour_ago]
-        
-        # Check limit
-        if len(self.request_times) >= self.max_requests:
-            sleep_time = 3600 - (now - self.request_times[0]).seconds
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-    
-    def _log_request(self):
-        """Log request time for rate limiting."""
-        self.request_times.append(datetime.now())
-    
-    def get_cache_stats(self) -> dict:
-        """Get cache statistics."""
-        return {
-            'size': len(self.cache),
-            'volume': self.cache.volume(),
-            'hit_rate': self.cache.stats(hits=True, misses=True)
-        }
-```
-
----
-
-## 📊 Product Backlog
-
-### Prioritized Backlog
-
-| Rank | ID | Story | Epic | Points | Priority |
-|------|-----|-------|------|--------|----------|
-| 1 | M0.1 | Bootstrap Repository | M0 | 5 | ✅ Done |
-| 2 | M0.2 | Yahoo Finance + Caching | M0 | 13 | 🔴 |
-| 3 | M0.3 | Multi-Source Architecture | M0 | 8 | 🔴 |
-| 4 | M1.1 | Persistent Cache | M1 | 8 | 🔴 |
-| 5 | M2.1 | OANDA API Client | M2 | 13 | 🔴 |
-| 6 | M0.4 | Position Sizing (Lots) | M0 | 5 | 🟠 |
-| 7 | M0.5 | USD/SGD Config | M0 | 3 | 🟠 |
-| 8 | M1.2 | Rate Limit Protection | M1 | 5 | 🟠 |
-| 9 | M2.2 | Paper Trading | M2 | 8 | 🟠 |
-| 10 | M1.3 | Historical Pre-fetch | M1 | 5 | 🟡 |
-| 11 | M3.1 | Asian Session Detection | M3 | 5 | 🟡 |
-| 12 | M3.3 | News Filter | M3 | 8 | 🟡 |
-| 13 | M2.3 | Real-Time Streaming | M2 | 8 | 🟢 |
-| 14 | M3.2 | Weekend Gap Protection | M3 | 3 | 🟢 |
-| 15 | M2.4 | Multi-Broker Framework | M2 | 5 | 🟢 |
-| 16 | M3.4 | Correlation Mgmt | M3 | 5 | 🟢 |
-| 17 | M1.4 | Cache Analytics | M1 | 3 | 🔵 |
-
----
-
-## ✅ Definition of Done
-
-### For Data Stories
-- [ ] Cache hit rate > 90% in normal operation
-- [ ] No 429 errors in 24-hour test
-- [ ] Historical data loads in < 5 seconds (from cache)
-- [ ] Rate limit never exceeded (max 100/hour)
-- [ ] Fallback to alternative source works
-
-### For Broker Stories
-- [ ] Practice account connected
-- [ ] Order execution < 1 second
-- [ ] Position tracking accurate
-- [ ] Error handling tested (network down, API errors)
+| Pair | Cache File | TTL Intraday | TTL Historical |
+|------|-----------|--------------|----------------|
+| USD/SGD | `usd_sgd.db` | 15 min | 7 days |
+| USD/MYR | `usd_myr.db` | 15 min | 7 days |
 
 ---
 
 ## ⚠️ Risk Management
 
-### Data Risks
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Yahoo blocks IP | Medium | High | Rotate user-agents, use proxy fallback |
-| Yahoo API changes | Low | High | Abstract provider layer, easy to switch |
-| Cache corruption | Low | Medium | Regular backups, validation checks |
-| OANDA outage | Medium | High | Multi-broker support planned |
+### Pair-Specific Risks
 
-### Trading Risks (SEA Specific)
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| MAS intervention (SGD) | Medium | Medium | Wider stops during policy announcements |
-| BNM intervention (MYR) | Medium | High | USD/MYR position limits |
-| Asian holiday low liquidity | High | Medium | Holiday calendar, reduced size |
-| Weekend gap | High | Medium | Mandatory Friday close |
+| Risk | USD/SGD | USD/MYR |
+|------|---------|---------|
+| **Intervention** | Low (MAS) | Medium (BNM) |
+| **Spread Spike** | 2-5 → 10 pips | 20-50 → 100 pips |
+| **Liquidity** | High | Medium |
+| **Gap Risk** | Low | Medium |
+| **Correlation** | N/A | High with SGD |
+
+### Phase 1 Risk Controls (USD/SGD Only)
+
+```
+Hard Stops:
+├── Max loss per trade: 2% of account
+├── Max daily loss: 5% of account
+├── Max positions: 1 (only USD/SGD)
+└── Weekend: Must close by Friday 20:00 UTC
+
+Soft Limits:
+├── Skip if spread >5 pips
+├── Skip if MAS announcement within 1 hour
+└── Reduce size if volatility >2x ATR
+```
+
+### Phase 2 Risk Controls (Dual Pair)
+
+```
+Additional Controls:
+├── Max positions: 2 (one per pair)
+├── Correlation check: Skip MYR if corr >0.85
+├── Allocation: 70% SGD, 30% MYR
+└── MYR only during Asian session (BNM active hours)
+```
 
 ---
 
 ## 📝 Decision Log
 
-| Date | Decision | Rationale | Status |
-|------|----------|-----------|--------|
-| 2026-02-26 | USD/SGD as primary pair | Tight spreads, high liquidity, SEA exposure | Approved |
-| 2026-02-26 | Exclude IDR | High spreads (50-200 pips), capital controls | Approved |
-| 2026-02-26 | Yahoo Finance for backtesting | Free, sufficient for 15m data, easy caching | Approved |
-| 2026-02-26 | OANDA for live trading | Best API, practice accounts, USD/SGD available | Approved |
-| 2026-02-26 | 100 req/hour Yahoo limit | Conservative (well below 2,000 limit) | Approved |
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-02-26 | USD/SGD primary | Tightest spreads, best liquidity |
+| 2026-02-26 | USD/MYR secondary | SEA exposure, IBKR availability |
+| 2026-02-26 | OANDA for SGD | Best USD/SGD spreads |
+| 2026-02-26 | IBKR for MYR | Only major broker with MYR |
+| 2026-02-26 | Exclude IDR | Spreads too wide (50-200 pips) |
+| 2026-02-26 | 15m for SGD, 1h for MYR | Spread-adjusted timeframes |
 
 ---
 
-**Document Owner:** Lead Developer  
-**Next Review:** After Sprint M0  
-**Status:** Draft - USD/SGD Focus Adopted
+**Document Status:** Phase 1 Focus Locked  
+**Next Action:** Implement M0.2 (USD/SGD Data Pipeline)
