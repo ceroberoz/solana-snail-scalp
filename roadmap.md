@@ -158,7 +158,7 @@ Story Points: 3
 ```
 
 **US-1.4: Multi-Timeframe Confirmation**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want 15-min timeframe to confirm 5-min signals
@@ -215,7 +215,7 @@ Story Points: 8
 ```
 
 **US-2.2: Breakeven Stop After TP1**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want stop moved to breakeven after TP1 hits
@@ -231,7 +231,7 @@ Story Points: 5
 ```
 
 **US-2.3: Trailing Stop After TP1**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want trailing stop to lock in profits
@@ -247,7 +247,7 @@ Story Points: 8
 ```
 
 **US-2.4: Dynamic Profit Targets**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want profit targets based on ATR not fixed %
@@ -263,7 +263,7 @@ Story Points: 5
 ```
 
 **US-2.5: Time-Based Exit**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want positions closed after 2 hours max

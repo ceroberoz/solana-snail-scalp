@@ -22,12 +22,19 @@ class ExitLevels:
 
 
 class TechnicalIndicators:
-    """Bollinger Bands and RSI calculation"""
+    """Bollinger Bands and RSI calculation with multi-timeframe support (US-1.4)"""
 
-    def __init__(self, period: int = 20):
+    def __init__(self, period: int = 20, enable_multi_timeframe: bool = True):
         self.period = period
         self.prices = deque(maxlen=period + 10)
         self.volumes = deque(maxlen=period + 10)
+        
+        # US-1.4: Multi-timeframe data storage
+        self.enable_multi_timeframe = enable_multi_timeframe
+        self.price_history_15m = deque(maxlen=50)  # Store 15m candles
+        self.last_candle_time = 0
+        self.current_candle_prices = []
+        self.current_candle_volumes = []
 
     def add_price(self, price: float, volume: float = 0):
         """Add new price point"""
@@ -98,8 +105,11 @@ class TechnicalIndicators:
 
         # Condition 5: Volume confirmation (>1.3x average - US-1.2)
         volume_ok = self._check_volume_confirmation()
+        
+        # Condition 6: Multi-timeframe confirmation (US-1.4)
+        mtf_ok = self.check_multi_timeframe_confirm(current_price)
 
-        return at_bb and rsi_ok and volatility_ok and not_falling and volume_ok
+        return at_bb and rsi_ok and volatility_ok and not_falling and volume_ok and mtf_ok
 
     def get_exit_levels(self, entry_price: float) -> ExitLevels:
         """Calculate take-profit and stop-loss levels"""
@@ -130,6 +140,105 @@ class TechnicalIndicators:
             return True
         
         return current_volume >= avg_volume * threshold
+
+    def add_ohlcv(self, timestamp: float, open_p: float, high: float, low: float, 
+                  close: float, volume: float, timeframe_minutes: int = 5):
+        """Add OHLCV data with multi-timeframe aggregation (US-1.4)"""
+        # Always add to primary (5m) data
+        self.add_price(close, volume)
+        
+        if not self.enable_multi_timeframe:
+            return
+        
+        # Aggregate 15m candles from 5m data
+        if timeframe_minutes == 5:
+            self.current_candle_prices.append(close)
+            self.current_candle_volumes.append(volume)
+            
+            # Check if we have 3 candles (15m = 3 * 5m)
+            if len(self.current_candle_prices) >= 3:
+                # Form 15m candle
+                open_15m = self.current_candle_prices[0]
+                high_15m = max(self.current_candle_prices)
+                low_15m = min(self.current_candle_prices)
+                close_15m = self.current_candle_prices[-1]
+                volume_15m = sum(self.current_candle_volumes)
+                
+                self.price_history_15m.append({
+                    'open': open_15m,
+                    'high': high_15m,
+                    'low': low_15m,
+                    'close': close_15m,
+                    'volume': volume_15m
+                })
+                
+                # Reset current candle
+                self.current_candle_prices = []
+                self.current_candle_volumes = []
+
+    def calculate_rsi_15m(self, period: int = 14) -> float:
+        """Calculate RSI for 15m timeframe (US-1.4)"""
+        if len(self.price_history_15m) < period + 1:
+            return 50.0  # Neutral if not enough data
+        
+        closes = [c['close'] for c in list(self.price_history_15m)[-period-1:]]
+        deltas = [closes[i + 1] - closes[i] for i in range(len(closes) - 1)]
+        
+        gains = [d if d > 0 else 0 for d in deltas]
+        losses = [-d if d < 0 else 0 for d in deltas]
+        
+        avg_gain = np.mean(gains)
+        avg_loss = np.mean(losses)
+        
+        if avg_loss == 0:
+            return 100.0
+        
+        rs = avg_gain / avg_loss
+        return 100 - (100 / (1 + rs))
+
+    def get_15m_trend(self, lookback: int = 3) -> str:
+        """Get 15m trend direction (US-1.4)"""
+        if len(self.price_history_15m) < lookback + 1:
+            return "UNKNOWN"
+        
+        candles = list(self.price_history_15m)[-lookback:]
+        closes = [c['close'] for c in candles]
+        
+        # Simple trend: higher highs and higher lows = uptrend
+        highs = [c['high'] for c in candles]
+        lows = [c['low'] for c in candles]
+        
+        higher_highs = all(highs[i] > highs[i-1] for i in range(1, len(highs)))
+        higher_lows = all(lows[i] > lows[i-1] for i in range(1, len(lows)))
+        lower_highs = all(highs[i] < highs[i-1] for i in range(1, len(highs)))
+        lower_lows = all(lows[i] < lows[i-1] for i in range(1, len(lows)))
+        
+        if higher_highs and higher_lows:
+            return "UPTREND"
+        elif lower_highs and lower_lows:
+            return "DOWNTREND"
+        else:
+            return "RANGING"
+
+    def check_multi_timeframe_confirm(self, current_price: float, 
+                                       rsi_15m_max: float = 50.0,
+                                       require_uptrend: bool = False) -> bool:
+        """Check 15m timeframe confirmation (US-1.4)"""
+        if not self.enable_multi_timeframe:
+            return True  # Allow if disabled
+        
+        if len(self.price_history_15m) < 15:
+            return True  # Allow if not enough 15m data
+        
+        # 15m RSI must be < 50 (not overbought)
+        rsi_15m = self.calculate_rsi_15m()
+        rsi_ok = rsi_15m < rsi_15m_max
+        
+        # Optional: require uptrend alignment
+        trend = self.get_15m_trend()
+        trend_ok = (trend == "UPTREND") if require_uptrend else True
+        
+        return rsi_ok and trend_ok
 
     def calculate_atr(self, period: int = 14) -> float:
         """Calculate Average True Range (ATR) for dynamic stops (US-2.1)"""

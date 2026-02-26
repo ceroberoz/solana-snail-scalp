@@ -38,11 +38,34 @@ class StrategyConfig:
     dca_trigger_percent: float = 1.0
 
     # Exit settings
+    # US-2.4: Dynamic Profit Targets using ATR
+    use_atr_targets: bool = True  # Enable ATR-based profit targets
+    tp1_atr_multiplier: float = 1.0  # TP1 = Entry + (ATR * 1.0)
+    tp2_atr_multiplier: float = 2.0  # TP2 = Entry + (ATR * 2.0)
+    tp_min_percent: float = 2.0  # Minimum 2% profit target
+    tp_max_percent: float = 8.0  # Maximum 8% profit target
+    
+    # Legacy percent-based (fallback if ATR disabled)
     tp1_percent: float = 2.5  # Sell 50%
     tp2_percent: float = 4.0  # Sell remaining 50%
+    
+    # US-2.1: ATR-based stops
     stop_loss_atr_multiplier: float = 1.5  # Stop = Entry - (ATR * 1.5)
     stop_loss_max_percent: float = 3.0  # Max stop capped at 3%
     use_atr_stop: bool = True  # Enable ATR-based stops
+    
+    # US-2.2: Breakeven stop after TP1
+    use_breakeven_stop: bool = True  # Move stop to entry+fees after TP1
+    breakeven_buffer_percent: float = 0.1  # Small buffer for fees
+    
+    # US-2.3: Trailing stop after TP1
+    use_trailing_stop: bool = True  # Enable trailing stop after TP1
+    trailing_stop_percent: float = 1.0  # Trail at 1% below recent high
+    trailing_update_interval: int = 300  # Update every 5 minutes (seconds)
+    
+    # US-2.5: Time-based exit
+    max_hold_time_minutes: int = 120  # Max 2 hours hold time
+    use_time_exit: bool = True  # Enable time-based exit
 
 
 @dataclass

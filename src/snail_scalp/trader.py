@@ -35,6 +35,17 @@ class Trade:
     close_reason: Optional[CloseReason] = None
     pnl_usd: float = 0.0
     pnl_pct: float = 0.0
+    
+    # US-2.3: Trailing stop tracking
+    highest_price: float = 0.0
+    last_trailing_update: float = 0.0
+    
+    # US-2.2: Breakeven stop price
+    breakeven_stop_price: float = 0.0
+    
+    def __post_init__(self):
+        if self.highest_price == 0.0:
+            self.highest_price = self.entry_price
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -149,13 +160,24 @@ class Trader:
         return True
 
     async def manage_position(self, current_price: float, indicators):
-        """Check exits and DCA opportunities"""
+        """Check exits and DCA opportunities with Sprint 3-4 enhancements"""
         if not self.active_position:
             return
 
         pos = self.active_position
         entry = pos.entry_price
         pnl_pct = (current_price - entry) / entry * 100
+        current_time = time.time()
+
+        # US-2.5: Check time-based exit (max hold time)
+        use_time_exit = self.config.get("use_time_exit", True)
+        max_hold_minutes = self.config.get("max_hold_time_minutes", 120)
+        if use_time_exit:
+            hold_time_minutes = (current_time - pos.entry_time) / 60
+            if hold_time_minutes >= max_hold_minutes:
+                print(f"\n[TIME] TIME EXIT at ${current_price:.4f} (held {hold_time_minutes:.0f}min, max {max_hold_minutes}min)")
+                await self._close_position(current_price, CloseReason.MANUAL)
+                return
 
         # Check DCA opportunity (down 1%, haven't DCA'd yet) - US-3.1: DCA size = 50% of original
         dca_trigger = self.config.get("dca_trigger_percent", 1.0)
@@ -181,33 +203,95 @@ class Trader:
                 pos.dca_done = True
                 print(f"   New avg entry: ${pos.entry_price:.4f}, Total: ${pos.size_usd:.2f}")
 
-        # Check Stop Loss - US-2.1: ATR-based stop or fallback to fixed
+        # US-2.3: Update highest price and trailing stop tracking
+        use_trailing = self.config.get("use_trailing_stop", True)
+        trailing_pct = self.config.get("trailing_stop_percent", 1.0)
+        trailing_interval = self.config.get("trailing_update_interval", 300)
+        
+        if current_price > pos.highest_price:
+            pos.highest_price = current_price
+
+        # Check Stop Loss - US-2.1: ATR-based stop, US-2.2: Breakeven stop after TP1
         use_atr = self.config.get("use_atr_stop", True)
         atr_multiplier = self.config.get("stop_loss_atr_multiplier", 1.5)
         max_stop_pct = self.config.get("stop_loss_max_percent", 3.0)
+        use_breakeven = self.config.get("use_breakeven_stop", True)
         
+        # Calculate base stop price
         exit_levels = indicators.get_exit_levels(
             entry, use_atr=use_atr, atr_multiplier=atr_multiplier, max_stop_pct=max_stop_pct
         )
         stop_price = exit_levels.stop
+        
+        # US-2.2: After TP1, move stop to breakeven + buffer
+        if pos.tp1_hit and use_breakeven and pos.breakeven_stop_price == 0.0:
+            buffer_pct = self.config.get("breakeven_buffer_percent", 0.1)
+            breakeven_price = entry * (1 + buffer_pct / 100)
+            # Don't move stop below breakeven after TP1
+            if stop_price < breakeven_price:
+                pos.breakeven_stop_price = breakeven_price
+                print(f"\n[BREAKEVEN] Stop moved to breakeven: ${breakeven_price:.4f} (+{buffer_pct}% buffer)")
+        
+        # Use breakeven stop if set (higher than regular stop)
+        if pos.breakeven_stop_price > 0:
+            stop_price = max(stop_price, pos.breakeven_stop_price)
+        
+        # US-2.3: Trailing stop after TP1 (don't trail below breakeven)
+        if pos.tp1_hit and use_trailing:
+            time_since_update = current_time - pos.last_trailing_update
+            if time_since_update >= trailing_interval:
+                trailing_stop = pos.highest_price * (1 - trailing_pct / 100)
+                # Don't trail below breakeven
+                min_stop = pos.breakeven_stop_price if pos.breakeven_stop_price > 0 else entry
+                effective_trailing = max(trailing_stop, min_stop)
+                if effective_trailing > stop_price:
+                    stop_price = effective_trailing
+                    print(f"\n[TRAIL] Trailing stop updated: ${stop_price:.4f} (1% below high ${pos.highest_price:.4f})")
+                pos.last_trailing_update = current_time
+        
         stop_loss_pct = (entry - stop_price) / entry * 100
         
         if current_price <= stop_price:
-            print(f"\n[STOP] STOP LOSS at ${current_price:.4f} ({pnl_pct:.2f}%) [ATR stop: ${stop_price:.4f}, {-stop_loss_pct:.2f}%]")
+            reason_str = "STOP LOSS"
+            if pos.tp1_hit and pos.breakeven_stop_price > 0 and current_price <= pos.breakeven_stop_price:
+                reason_str = "BREAKEVEN STOP"
+            elif pos.tp1_hit and use_trailing:
+                reason_str = "TRAILING STOP"
+            print(f"\n[STOP] {reason_str} at ${current_price:.4f} ({pnl_pct:.2f}%) [Stop: ${stop_price:.4f}, {-stop_loss_pct:.2f}%]")
             await self._close_position(current_price, CloseReason.STOP_LOSS)
             return
 
-        # Check TP1 (2.5%)
-        tp1 = self.config.get("tp1_percent", 2.5)
-        if pnl_pct >= tp1 and not pos.tp1_hit:
-            print(f"\n[TP1] TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%)")
+        # US-2.4: Dynamic Profit Targets using ATR
+        use_atr_targets = self.config.get("use_atr_targets", True)
+        if use_atr_targets and indicators.calculate_atr() > 0:
+            atr = indicators.calculate_atr()
+            tp1_mult = self.config.get("tp1_atr_multiplier", 1.0)
+            tp2_mult = self.config.get("tp2_atr_multiplier", 2.0)
+            tp_min = self.config.get("tp_min_percent", 2.0)
+            tp_max = self.config.get("tp_max_percent", 8.0)
+            
+            # Calculate ATR-based targets with min/max caps
+            tp1_atr_pct = max(min(atr / entry * tp1_mult * 100, tp_max), tp_min)
+            tp2_atr_pct = max(min(atr / entry * tp2_mult * 100, tp_max), tp_min)
+            
+            tp1_price = entry * (1 + tp1_atr_pct / 100)
+            tp2_price = entry * (1 + tp2_atr_pct / 100)
+        else:
+            # Fallback to fixed percent
+            tp1_price = entry * (1 + self.config.get("tp1_percent", 2.5) / 100)
+            tp2_price = entry * (1 + self.config.get("tp2_percent", 4.0) / 100)
+
+        # Check TP1
+        if current_price >= tp1_price and not pos.tp1_hit:
+            tp1_pct = (tp1_price - entry) / entry * 100
+            print(f"\n[TP1] TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp1_price:.4f}, +{tp1_pct:.2f}%]")
             await self._partial_close(current_price, 0.5, CloseReason.TP1)
             pos.tp1_hit = True
 
-        # Check TP2 (4%)
-        tp2 = self.config.get("tp2_percent", 4.0)
-        if pnl_pct >= tp2 and pos.tp1_hit:
-            print(f"\n[TP2] TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%)")
+        # Check TP2
+        if current_price >= tp2_price and pos.tp1_hit:
+            tp2_pct = (tp2_price - entry) / entry * 100
+            print(f"\n[TP2] TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp2_price:.4f}, +{tp2_pct:.2f}%]")
             await self._close_position(current_price, CloseReason.TP2)
 
     async def _partial_close(self, price: float, portion: float, reason: CloseReason):
