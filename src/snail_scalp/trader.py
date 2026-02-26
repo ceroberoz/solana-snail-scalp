@@ -43,9 +43,20 @@ class Trade:
     # US-2.2: Breakeven stop price
     breakeven_stop_price: float = 0.0
     
+    # US-2.6: Partial scaling tracking
+    scale_levels_hit: List[bool] = None  # Track which scale levels hit
+    final_position_size: float = 0.0  # Remaining size after scaling
+    
+    # US-1.5: Market regime at entry
+    entry_regime: str = ""
+    
     def __post_init__(self):
         if self.highest_price == 0.0:
             self.highest_price = self.entry_price
+        if self.scale_levels_hit is None:
+            self.scale_levels_hit = []
+        if self.final_position_size == 0.0:
+            self.final_position_size = self.size_usd
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -114,9 +125,10 @@ class Trader:
             json.dump(history, f, indent=2)
 
     async def check_entry(
-        self, current_price: float, indicators, available_capital: float = 20.0
+        self, current_price: float, indicators, available_capital: float = 20.0,
+        symbol: str = "", active_symbols: List[str] = None, correlation_tracker = None
     ) -> bool:
-        """Evaluate if we should enter a position"""
+        """Evaluate if we should enter a position with Sprint 5-6 features"""
         if self.active_position:
             return False
 
@@ -126,22 +138,74 @@ class Trader:
         if not self.risk.is_trading_window():
             return False
 
+        # US-1.5: Check market regime (skip choppy markets)
+        if self.config.get("use_regime_detection", True):
+            regime = indicators.detect_market_regime(
+                self.config.get("regime_adx_threshold", 25.0)
+            )
+            if regime == "CHOPPY" and self.config.get("skip_choppy_markets", True):
+                print(f"[SKIP] Market regime is CHOPPY - skipping trade")
+                return False
+        else:
+            regime = "UNKNOWN"
+
         if indicators.is_entry_signal(
             current_price,
             rsi_min=self.config.get("rsi_oversold_min", 25),
             rsi_max=self.config.get("rsi_oversold_max", 35),
             min_band_width=self.config.get("min_band_width_percent", 2.0),
         ):
-            return await self._execute_entry(current_price, indicators, available_capital)
+            # US-3.3: Check correlation risk before entry
+            if correlation_tracker and active_symbols and symbol:
+                use_corr = self.config.get("use_correlation_check", True)
+                max_corr = self.config.get("max_correlated_positions", 2)
+                if use_corr:
+                    allowed, correlated = correlation_tracker.check_correlation_risk(
+                        symbol, active_symbols, max_corr
+                    )
+                    if not allowed:
+                        print(f"[SKIP] Correlation risk: {symbol} correlated with {correlated}")
+                        return False
+            
+            return await self._execute_entry(current_price, indicators, available_capital, regime)
 
         return False
 
-    async def _execute_entry(self, price: float, indicators, available_capital: float) -> bool:
-        """Execute entry order"""
+    async def _execute_entry(self, price: float, indicators, available_capital: float, regime: str = "") -> bool:
+        """Execute entry order with Sprint 5-6 enhancements"""
+        base_size = self.config.get("primary_allocation", 3.0)
+        
+        # US-3.2: Dynamic position sizing based on confidence
+        if self.config.get("use_dynamic_sizing", True):
+            confidence = indicators.calculate_confidence_score()
+            min_ratio = self.config.get("min_position_ratio", 0.5)
+            max_ratio = self.config.get("max_position_ratio", 1.5)
+            
+            # Size = Base * (0.5 + confidence/100)
+            size_multiplier = min_ratio + (confidence / 100.0)
+            size_multiplier = max(min_ratio, min(max_ratio, size_multiplier))
+            
+            # US-1.5: Adjust by regime
+            if self.config.get("position_size_by_regime", True) and regime:
+                regime_multipliers = {
+                    "TRENDING_UP": 1.2,
+                    "TRENDING_DOWN": 0.7,  # Reduce size in downtrend
+                    "RANGING": 1.0,
+                    "CHOPPY": 0.6,  # Should not reach here due to skip
+                }
+                size_multiplier *= regime_multipliers.get(regime, 1.0)
+            
+            size_usd = base_size * size_multiplier
+            print(f"   Confidence: {confidence:.0f}/100, Multiplier: {size_multiplier:.2f}x")
+            if regime:
+                print(f"   Regime: {regime}")
+        else:
+            size_usd = base_size
+
         size_usd = self.risk.check_position_size(
             available_capital,
             "primary",
-            self.config.get("primary_allocation", 3.0),
+            size_usd,
         )
 
         print(f"\n[ENTRY] ENTRY SIGNAL at ${price:.4f}")
@@ -154,7 +218,18 @@ class Trader:
             # TODO: Jupiter API integration here
             print(f"   [LIVE] Jupiter swap would execute here")
 
-        self.active_position = Trade(entry_price=price, size_usd=size_usd, entry_time=time.time())
+        # US-2.6: Initialize partial scaling tracking
+        scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
+        scale_levels_hit = [False] * len(scale_config)
+        
+        self.active_position = Trade(
+            entry_price=price, 
+            size_usd=size_usd, 
+            entry_time=time.time(),
+            scale_levels_hit=scale_levels_hit,
+            final_position_size=size_usd,
+            entry_regime=regime
+        )
 
         print(f"[OK] Position opened: ${size_usd:.2f} @ ${price:.4f}")
         return True
@@ -261,38 +336,58 @@ class Trader:
             await self._close_position(current_price, CloseReason.STOP_LOSS)
             return
 
-        # US-2.4: Dynamic Profit Targets using ATR
-        use_atr_targets = self.config.get("use_atr_targets", True)
-        if use_atr_targets and indicators.calculate_atr() > 0:
-            atr = indicators.calculate_atr()
-            tp1_mult = self.config.get("tp1_atr_multiplier", 1.0)
-            tp2_mult = self.config.get("tp2_atr_multiplier", 2.0)
-            tp_min = self.config.get("tp_min_percent", 2.0)
-            tp_max = self.config.get("tp_max_percent", 8.0)
+        # US-2.6: Partial Profit Scaling (25%, 50%, 75%) + Final Trailing
+        use_partial = self.config.get("use_partial_scaling", True)
+        if use_partial:
+            scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
             
-            # Calculate ATR-based targets with min/max caps
-            tp1_atr_pct = max(min(atr / entry * tp1_mult * 100, tp_max), tp_min)
-            tp2_atr_pct = max(min(atr / entry * tp2_mult * 100, tp_max), tp_min)
-            
-            tp1_price = entry * (1 + tp1_atr_pct / 100)
-            tp2_price = entry * (1 + tp2_atr_pct / 100)
+            for i, (portion, profit_pct) in enumerate(scale_config):
+                if i < len(pos.scale_levels_hit) and not pos.scale_levels_hit[i]:
+                    target_price = entry * (1 + profit_pct / 100)
+                    if current_price >= target_price:
+                        # Close portion at this level
+                        close_size = pos.final_position_size * portion
+                        actual_portion = close_size / pos.size_usd if pos.size_usd > 0 else 0
+                        actual_portion = min(actual_portion, 1.0)  # Cap at 100%
+                        
+                        print(f"\n[SCALE-{i+1}] Scale out at +{profit_pct}%")
+                        await self._partial_close(current_price, actual_portion, CloseReason.TP1)
+                        pos.scale_levels_hit[i] = True
+                        
+                        # If this was the last scale level, enable final trailing
+                        if i == len(scale_config) - 1:
+                            pos.tp1_hit = True  # Enable trailing stop logic
+                            print("   Final 25% using trailing stop")
+                        break  # Only one scale per check
         else:
-            # Fallback to fixed percent
-            tp1_price = entry * (1 + self.config.get("tp1_percent", 2.5) / 100)
-            tp2_price = entry * (1 + self.config.get("tp2_percent", 4.0) / 100)
+            # Legacy TP1/TP2 logic
+            use_atr_targets = self.config.get("use_atr_targets", True)
+            if use_atr_targets and indicators.calculate_atr() > 0:
+                atr = indicators.calculate_atr()
+                tp1_mult = self.config.get("tp1_atr_multiplier", 1.0)
+                tp2_mult = self.config.get("tp2_atr_multiplier", 2.0)
+                tp_min = self.config.get("tp_min_percent", 2.0)
+                tp_max = self.config.get("tp_max_percent", 8.0)
+                
+                tp1_atr_pct = max(min(atr / entry * tp1_mult * 100, tp_max), tp_min)
+                tp2_atr_pct = max(min(atr / entry * tp2_mult * 100, tp_max), tp_min)
+                
+                tp1_price = entry * (1 + tp1_atr_pct / 100)
+                tp2_price = entry * (1 + tp2_atr_pct / 100)
+            else:
+                tp1_price = entry * (1 + self.config.get("tp1_percent", 2.5) / 100)
+                tp2_price = entry * (1 + self.config.get("tp2_percent", 4.0) / 100)
 
-        # Check TP1
-        if current_price >= tp1_price and not pos.tp1_hit:
-            tp1_pct = (tp1_price - entry) / entry * 100
-            print(f"\n[TP1] TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp1_price:.4f}, +{tp1_pct:.2f}%]")
-            await self._partial_close(current_price, 0.5, CloseReason.TP1)
-            pos.tp1_hit = True
+            if current_price >= tp1_price and not pos.tp1_hit:
+                tp1_pct = (tp1_price - entry) / entry * 100
+                print(f"\n[TP1] TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp1_price:.4f}, +{tp1_pct:.2f}%]")
+                await self._partial_close(current_price, 0.5, CloseReason.TP1)
+                pos.tp1_hit = True
 
-        # Check TP2
-        if current_price >= tp2_price and pos.tp1_hit:
-            tp2_pct = (tp2_price - entry) / entry * 100
-            print(f"\n[TP2] TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp2_price:.4f}, +{tp2_pct:.2f}%]")
-            await self._close_position(current_price, CloseReason.TP2)
+            if current_price >= tp2_price and pos.tp1_hit:
+                tp2_pct = (tp2_price - entry) / entry * 100
+                print(f"\n[TP2] TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp2_price:.4f}, +{tp2_pct:.2f}%]")
+                await self._close_position(current_price, CloseReason.TP2)
 
     async def _partial_close(self, price: float, portion: float, reason: CloseReason):
         """Close portion of position (TP1)"""

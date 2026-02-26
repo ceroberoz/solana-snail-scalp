@@ -66,6 +66,33 @@ class StrategyConfig:
     # US-2.5: Time-based exit
     max_hold_time_minutes: int = 120  # Max 2 hours hold time
     use_time_exit: bool = True  # Enable time-based exit
+    
+    # US-2.6: Partial Profit Scaling
+    use_partial_scaling: bool = True  # Enable 25%, 50%, 75%, final trailing
+    partial_scale_levels: tuple = ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0))  # (portion, profit%)
+    final_trailing_after_scale: bool = True  # Use trailing for final 25%
+    
+    # US-3.2: Dynamic Position Sizing
+    use_dynamic_sizing: bool = True  # Enable confidence-based sizing
+    min_position_ratio: float = 0.5  # Minimum 50% of base size
+    max_position_ratio: float = 1.5  # Maximum 150% of base size
+    confidence_rsi_weight: float = 0.4  # 40% weight on RSI depth
+    confidence_volume_weight: float = 0.3  # 30% weight on volume
+    confidence_bb_weight: float = 0.3  # 30% weight on BB width
+    
+    # US-3.3: Correlation Risk Management
+    use_correlation_check: bool = True  # Enable correlation risk management
+    max_correlated_positions: int = 2  # Max 2 correlated positions
+    correlation_threshold: float = 0.7  # Correlation > 0.7 = correlated
+    correlation_lookback: int = 20  # Lookback period for correlation
+    
+    # US-1.5: Market Regime Detection
+    use_regime_detection: bool = True  # Enable market regime detection
+    regime_adx_threshold: float = 25.0  # ADX > 25 = trending
+    regime_lookback: int = 14  # Lookback for regime calc
+    skip_choppy_markets: bool = True  # Skip trades when choppy
+    position_size_by_regime: bool = True  # Adjust size by regime
+    regime_size_multiplier: dict = None  # Will be set in __post_init__
 
 
 @dataclass

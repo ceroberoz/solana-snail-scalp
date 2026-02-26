@@ -174,7 +174,7 @@ Story Points: 8
 ```
 
 **US-1.5: Market Regime Detection**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want the bot to detect trending vs ranging markets
@@ -279,7 +279,7 @@ Story Points: 3
 ```
 
 **US-2.6: Partial Profit Scaling**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want to take profits at 25%, 50%, 75% intervals
@@ -321,7 +321,7 @@ Story Points: 5
 ```
 
 **US-3.2: Dynamic Position Sizing**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want position size based on confidence score
@@ -337,7 +337,7 @@ Story Points: 8
 ```
 
 **US-3.3: Correlation Risk Management**
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want the bot to avoid correlated positions

@@ -287,11 +287,101 @@ class TechnicalIndicators:
             stop=stop,
         )
 
+    def calculate_adx(self, period: int = 14) -> Tuple[float, float, float]:
+        """Calculate ADX, +DI, -DI for trend strength (US-1.5)"""
+        if len(self.prices) < period * 2 + 1:
+            return 25.0, 20.0, 20.0  # Neutral trend if not enough data
+        
+        prices = list(self.prices)
+        highs = prices
+        lows = prices
+        closes = prices
+        
+        # Calculate +DM and -DM
+        plus_dm = []
+        minus_dm = []
+        tr_values = []
+        
+        for i in range(1, min(period * 2 + 1, len(prices))):
+            high_diff = highs[-i] - highs[-(i+1)]
+            low_diff = lows[-(i+1)] - lows[-i]
+            
+            plus_dm.append(max(high_diff, 0) if high_diff > low_diff else 0)
+            minus_dm.append(max(low_diff, 0) if low_diff > high_diff else 0)
+            
+            # True Range
+            tr = max(
+                highs[-i] - lows[-i],
+                abs(highs[-i] - closes[-(i+1)]),
+                abs(lows[-i] - closes[-(i+1)])
+            )
+            tr_values.append(tr)
+        
+        # Smooth DM and TR
+        plus_di = 100 * np.mean(plus_dm[-period:]) / np.mean(tr_values[-period:]) if np.mean(tr_values[-period:]) > 0 else 0
+        minus_di = 100 * np.mean(minus_dm[-period:]) / np.mean(tr_values[-period:]) if np.mean(tr_values[-period:]) > 0 else 0
+        
+        # Calculate DX and ADX
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0
+        adx = np.mean([dx] * period)  # Simplified ADX
+        
+        return adx, plus_di, minus_di
+
+    def detect_market_regime(self, adx_threshold: float = 25.0) -> str:
+        """Detect market regime: TRENDING_UP, TRENDING_DOWN, RANGING, CHOPPY (US-1.5)"""
+        adx, plus_di, minus_di = self.calculate_adx()
+        
+        if adx > adx_threshold:
+            # Trending market
+            if plus_di > minus_di:
+                return "TRENDING_UP"
+            else:
+                return "TRENDING_DOWN"
+        else:
+            # Non-trending - check if ranging or choppy
+            bb = self.calculate_bb()
+            if bb and bb.width_percent < 1.5:  # Narrow bands = choppy
+                return "CHOPPY"
+            return "RANGING"
+
+    def calculate_confidence_score(self) -> float:
+        """Calculate entry confidence score 0-100 (US-3.2)"""
+        score = 50.0  # Base score
+        
+        # RSI depth factor (lower RSI = higher confidence)
+        rsi = self.calculate_rsi()
+        if rsi < 30:
+            score += 20  # Deep oversold
+        elif rsi < 40:
+            score += 10  # Moderate oversold
+        
+        # Volume factor (above average = higher confidence)
+        if len(self.volumes) >= self.period:
+            volumes = list(self.volumes)[-self.period:]
+            avg_vol = np.mean(volumes[:-1]) if len(volumes) > 1 else volumes[0]
+            current_vol = volumes[-1]
+            if avg_vol > 0 and current_vol >= avg_vol * 1.5:
+                score += 15  # High volume
+            elif avg_vol > 0 and current_vol >= avg_vol * 1.3:
+                score += 10  # Good volume
+        
+        # BB width factor (wider = more room to move)
+        bb = self.calculate_bb()
+        if bb:
+            if bb.width_percent > 4.0:
+                score += 10  # Wide bands
+            elif bb.width_percent > 3.0:
+                score += 5   # Moderate bands
+        
+        return min(100.0, max(0.0, score))
+
     def get_stats(self) -> dict:
         """Get current indicator statistics"""
         bb = self.calculate_bb()
         rsi = self.calculate_rsi()
         atr = self.calculate_atr()
+        regime = self.detect_market_regime()
+        confidence = self.calculate_confidence_score()
 
         return {
             "bb_lower": bb.lower if bb else None,
@@ -300,5 +390,7 @@ class TechnicalIndicators:
             "bb_width": bb.width_percent if bb else None,
             "rsi": rsi,
             "atr": atr,
+            "regime": regime,
+            "confidence": confidence,
             "data_points": len(self.prices),
         }
