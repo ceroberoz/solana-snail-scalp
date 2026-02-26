@@ -14,7 +14,7 @@ jobs:
       - name: Sync All Issues
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
             
@@ -28,11 +28,10 @@ jobs:
             
             console.log(`Found ${issues.length} issues`);
             
-            // Get project info - repository project (owner and repo already defined above)
-            const repoQuery = `
-              query($owner: String!, $repo: String!) {
-                repository(owner: $owner, name: $repo) {
-                  id
+            // Get project info using viewer query (PAT has user project access)
+            const projectQuery = `
+              query {
+                viewer {
                   projectV2(number: 3) {
                     id
                     fields(first: 20) {
@@ -56,14 +55,14 @@ jobs:
               }
             `;
             
-            const repoResult = await github.graphql(repoQuery, { owner, repo });
+            const projectResult = await github.graphql(projectQuery);
             
-            if (!repoResult.repository.projectV2) {
-              throw new Error("Project not found. Make sure project #3 exists in this repository.");
+            if (!projectResult.viewer.projectV2) {
+              throw new Error("Project not found. Make sure project #3 exists.");
             }
             
-            const projectId = repoResult.repository.projectV2.id;
-            const projectFields = repoResult.repository.projectV2.fields.nodes;
+            const projectId = projectResult.viewer.projectV2.id;
+            const projectFields = projectResult.viewer.projectV2.fields.nodes;
             
             // Build field map
             const fieldMap = {};
