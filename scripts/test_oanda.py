@@ -3,20 +3,35 @@
 """
 Test OANDA connection and fetch live data
 
-Usage:
-    export OANDA_API_KEY="your_api_key"
-    export OANDA_ACCOUNT_ID="your_account_id"
-    python scripts/test_oanda.py
+Setup (choose one):
 
-Or set in .env file:
-    OANDA_API_KEY=xxx
-    OANDA_ACCOUNT_ID=xxx-xxx-xxx-xxx
-    OANDA_ENVIRONMENT=practice
+1. Environment Variables (Windows):
+   [Environment]::SetEnvironmentVariable("OANDA_API_KEY", "xxx", "User")
+   [Environment]::SetEnvironmentVariable("OANDA_ACCOUNT_ID", "xxx", "User")
+
+2. .env file (recommended):
+   Copy .env.example to .env and fill in your credentials
+
+3. PowerShell session (temporary):
+   $env:OANDA_API_KEY="xxx"
+   $env:OANDA_ACCOUNT_ID="xxx"
+
+Get API key: https://www.oanda.com/demo-account/
 """
 
 import sys
 import os
 from pathlib import Path
+
+# Try to load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"Loaded .env from {env_path}")
+except ImportError:
+    pass  # python-dotenv not installed, use system env vars
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
