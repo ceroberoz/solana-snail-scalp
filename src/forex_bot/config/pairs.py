@@ -48,12 +48,12 @@ USD_SGD = PairConfig(
     phase=1,
     priority="primary",
     
-    # Trading - Scalping optimized
-    timeframe="15m",
+    # Trading - Optimized for 1h data (Yahoo limitation)
+    timeframe="1h",
     spread_max_pips=5.0,
-    target_pips=[20, 40, 70],
+    target_pips=[25, 50, 80],  # Wider for trending markets
     stop_pips=25,
-    max_hold_hours=8,
+    max_hold_hours=48,  # Allow swing trades
     
     # Strategy
     bb_period=20,
