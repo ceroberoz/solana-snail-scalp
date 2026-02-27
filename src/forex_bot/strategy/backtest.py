@@ -12,6 +12,8 @@ import numpy as np
 from .indicators import ForexIndicators
 from .position_sizing import calculate_position_size, PositionSize
 
+from ..risk.weekend_protection import WeekendGapProtection, get_weekend_protection
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,7 @@ class CloseReason(Enum):
     STOP_LOSS = "stop_loss"
     BREAKEVEN = "breakeven"
     TIME_EXIT = "time_exit"
+    WEEKEND_EXIT = "weekend_exit"
 
 
 @dataclass
@@ -117,6 +120,16 @@ class BacktestResult:
         print(f"   Max Drawdown: {self.max_drawdown_pips:.1f} pips ({self.max_drawdown_pct:.1f}%)")
         print(f"   Average Duration: {self.avg_trade_duration:.1f} hours")
         
+        # Weekend protection stats (calculated from trades if available)
+        weekend_exits = [t for t in self.trades if hasattr(t, 'close_reason') and t.close_reason and t.close_reason.value == 'weekend_exit']
+        if weekend_exits:
+            print(f"\n🛡️ Weekend Gap Protection:")
+            print(f"   Trades closed before weekend: {len(weekend_exits)}")
+            weekend_pips = sum(t.pips for t in weekend_exits)
+            print(f"   Total pips from weekend exits: {weekend_pips:+.1f}")
+        print(f"   Max Drawdown: {self.max_drawdown_pips:.1f} pips ({self.max_drawdown_pct:.1f}%)")
+        print(f"   Average Duration: {self.avg_trade_duration:.1f} hours")
+        
         print("\n" + "="*60)
 
 
@@ -169,6 +182,10 @@ class ForexBacktest:
         self.total_pips = 0.0
         self.max_capital = initial_capital
         self.max_drawdown = 0.0
+        # Weekend gap protection (M3.2)
+        self.enable_weekend_protection = pair_config.get('enable_weekend_protection', True)
+        self.weekend_protection = get_weekend_protection() if self.enable_weekend_protection else None
+
         
     def calculate_position_size(self, entry: float, stop: float) -> PositionSize:
         """Calculate position size using position sizing module"""
@@ -205,6 +222,16 @@ class ForexBacktest:
                     current_time, current_price, current_bar
                 )
             else:
+                # Check if entry is allowed (includes weekend check)
+                if self._can_enter(current_time):
+                    self._check_entry(
+                        current_time, current_price, indicators
+                    )
+            if self.active_trade is not None:
+                self._manage_position(
+                    current_time, current_price, current_bar
+                )
+            else:
                 # Look for entry
                 self._check_entry(
                     current_time, current_price, indicators
@@ -224,6 +251,15 @@ class ForexBacktest:
             )
         
         return self._generate_results()
+
+    def _can_enter(self, current_time: datetime) -> bool:
+        """Check if new entries are allowed"""
+        # Check weekend protection
+        if self.weekend_protection is not None:
+            if not self.weekend_protection.is_entry_allowed(current_time):
+                return False
+        return True
+
     
     def _check_entry(
         self, 
@@ -303,6 +339,15 @@ class ForexBacktest:
             )
             return
         
+        # Check weekend gap protection - close positions Friday 20:00 UTC
+        if self.weekend_protection is not None:
+            if self.weekend_protection.should_close_positions(current_time):
+                self._close_trade(
+                    current_time, current_price,
+                    CloseReason.WEEKEND_EXIT,
+                    "Weekend gap protection - Friday 20:00 UTC"
+                )
+                return
         # Check stop loss
         if current_price <= trade.stop_price:
             self._close_trade(

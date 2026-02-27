@@ -23,6 +23,8 @@ classifiers = [
 dependencies = [
     "aiohttp>=3.8.0",
     "numpy>=1.24.0",
+    "pandas>=2.3.3",
+    "pytz>=2025.2",
 ]
 
 [project.optional-dependencies]

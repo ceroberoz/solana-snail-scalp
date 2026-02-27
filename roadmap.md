@@ -421,6 +421,8 @@ Story Points: 5
 ```
 
 #### M3.2: Weekend Gap Protection
+**Status:** ✅ Done
+```
 **Status:** 📝 Todo
 ```
 As a trader
