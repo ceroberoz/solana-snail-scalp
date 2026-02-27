@@ -275,7 +275,7 @@ Story Points: 3
 **Story Points:** 21
 
 #### M1.1: USD/MYR Data Integration
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want USD/MYR data for backtesting
@@ -291,7 +291,7 @@ Story Points: 5
 ```
 
 #### M1.2: Multi-Pair Architecture
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a developer
 I want to support both USD/SGD and USD/MYR
@@ -307,7 +307,7 @@ Story Points: 8
 ```
 
 #### M1.3: USD/MYR Specific Parameters
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want USD/MYR optimized for wider spreads
@@ -325,7 +325,7 @@ Story Points: 5
 ```
 
 #### M1.4: Correlation Monitor (SGD vs MYR)
-**Status:** 📝 Todo
+**Status:** ✅ Done
 ```
 As a trader
 I want to know when SGD and MYR are correlated
@@ -560,7 +560,10 @@ Story Points: 5
 
 | Story | Points | Status |
 |-------|--------|--------|
-| M1.1: MYR Data | 5 | 🔮 |
+| M1.1: MYR Data | 5 | ✅ |
+| M1.2: Multi-Pair Arch | 8 | ✅ |
+| M1.3: MYR Parameters | 5 | ✅ |
+| M2.3: IBKR Setup | 5 | 🔮 |
 | M1.2: Multi-Pair Arch | 8 | 🔮 |
 | M1.3: MYR Parameters | 5 | 🔮 |
 | M2.3: IBKR Setup | 5 | 🔮 |
