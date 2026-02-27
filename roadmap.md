@@ -405,6 +405,8 @@ Story Points: 5
 **Story Points:** 21
 
 #### M3.1: Asian Session Trading
+**Status:** ✅ Done
+```
 **Status:** 📝 Todo
 ```
 As a trader
@@ -522,7 +524,7 @@ Story Points: 5
 |-------|--------|--------|
 | M2.1: OANDA Trading | 13 | ⏸️ Pending account |
 | M2.2: Paper Mode | 8 | ⏸️ Pending account |
-| M3.2: Weekend Protection | 3 | ⏸️ |
+| TT|| M3.2: Weekend Protection | 3 | ✅ Done |
 | **Total** | **24** | **BLOCKED** |
 
 **Goal:** First paper trade on OANDA USD/SGD
@@ -541,7 +543,7 @@ Story Points: 5
 
 | Story | Points | Status |
 |-------|--------|--------|
-| M3.1: Asian Session | 5 | 🔮 |
+| M3.1: Asian Session | 5 | ✅ |
 | M3.3: News Filter | 8 | 🔮 |
 | M3.4: MAS Monitoring | 5 | 🔮 |
 | M2.3: Real-Time Stream | 5 | 🔮 |

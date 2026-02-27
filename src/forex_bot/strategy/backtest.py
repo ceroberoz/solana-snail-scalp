@@ -186,8 +186,48 @@ class ForexBacktest:
         self.enable_weekend_protection = pair_config.get('enable_weekend_protection', True)
         self.weekend_protection = get_weekend_protection() if self.enable_weekend_protection else None
 
+        # Asian session trading (M3.1)
+        self.enable_session_sizing = pair_config.get('enable_session_sizing', True)
+        self.session_manager = get_session_manager() if self.enable_session_sizing else None
+        self.session_stats = {}
         
-    def calculate_position_size(self, entry: float, stop: float) -> PositionSize:
+    def calculate_position_size(self, entry: float, stop: float, current_time: Optional[datetime] = None) -> PositionSize:
+        """Calculate position size using position sizing module"
+        from .position_sizing import calculate_position_size
+        
+        position = calculate_position_size(
+            account_balance=self.capital,
+            entry_price=entry,
+            stop_price=stop,
+            pair_code="USD_SGD",  # Phase 1 only
+            risk_pct=self.risk_per_trade_pct,
+        )
+        
+        # Apply Asian session multiplier (M3.1)
+        if self.session_manager is not None and current_time is not None:
+            multiplier = self.session_manager.get_position_multiplier(current_time)
+            
+            # Track session stats
+            session = self.session_manager.get_current_session(current_time)
+            if session.value not in self.session_stats:
+                self.session_stats[session.value] = 0
+            self.session_stats[session.value] += 1
+            
+            # Apply multiplier to position size
+            adjusted_lots = position.lots * multiplier
+            adjusted_micro_lots = adjusted_lots * 100
+            adjusted_units = int(adjusted_lots * 100_000)
+            
+            # Create new PositionSize with adjusted values
+            from dataclasses import replace
+            position = replace(
+                position,
+                lots=round(adjusted_lots, 2),
+                micro_lots=round(adjusted_micro_lots, 2),
+                units=adjusted_units,
+            )
+        
+        return position
         """Calculate position size using position sizing module"""
         from .position_sizing import calculate_position_size
         
@@ -293,6 +333,7 @@ class ForexBacktest:
         )
         
         # Calculate position size
+        position = self.calculate_position_size(current_price, levels['stop'], current_time)
         position = self.calculate_position_size(current_price, levels['stop'])
         size_lots = position.lots
         
