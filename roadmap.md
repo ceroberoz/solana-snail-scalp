@@ -580,7 +580,9 @@ Story Points: 5
 
 | Story | Points | Status |
 |-------|--------|--------|
-| M1.4: Correlation Monitor | 3 | 🔮 |
+| M1.4: Correlation Monitor | 3 | ✅ |
+| M5.1: Portfolio Sizing | 8 | ✅ |
+| M5.2: Dual Paper Trading | 8 | ✅ |
 | M5.1: Portfolio Sizing | 8 | 🔮 |
 | M5.2: Dual Paper Trading | 8 | 🔮 |
 | **Total** | **19** | **PHASE 2** |
