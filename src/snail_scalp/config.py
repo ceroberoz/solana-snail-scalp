@@ -91,6 +91,7 @@ class StrategyConfig:
     regime_adx_threshold: float = 25.0  # ADX > 25 = trending
     regime_lookback: int = 14  # Lookback for regime calc
     skip_choppy_markets: bool = True  # Skip trades when choppy
+    skip_trending_down_entries: bool = True  # Skip long entries in TRENDING_DOWN regime
     position_size_by_regime: bool = True  # Adjust size by regime
     regime_size_multiplier: dict = None  # Will be set in __post_init__
 
@@ -189,6 +190,7 @@ def apply_profile(profile: str = "default"):
         strategy_config.correlation_threshold = 0.85
         strategy_config.use_regime_detection = True
         strategy_config.skip_choppy_markets = False
+        strategy_config.skip_trending_down_entries = False
         strategy_config.position_size_by_regime = True
         strategy_config.regime_size_multiplier = {
             "TRENDING_UP": 1.2,

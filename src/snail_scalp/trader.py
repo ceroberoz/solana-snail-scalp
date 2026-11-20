@@ -146,6 +146,10 @@ class Trader:
             if regime == "CHOPPY" and self.config.get("skip_choppy_markets", True):
                 print(f"[SKIP] Market regime is CHOPPY - skipping trade")
                 return False
+        
+        if regime == "TRENDING_DOWN" and self.config.get("skip_trending_down_entries", True):
+            print(f"[SKIP] Market regime is TRENDING_DOWN - skipping long entry")
+            return False
         else:
             regime = "UNKNOWN"
 

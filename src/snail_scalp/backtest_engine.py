@@ -294,7 +294,15 @@ class BacktestEngine:
             else:
                 # Look for entry
                 if len(indicators.prices) >= strategy_config.bb_period:
-                    if indicators.is_entry_signal(price):
+                    # Regime gate
+                    regime_ok = True
+                    if getattr(strategy_config, "skip_trending_down_entries", True):
+                        regime = indicators.detect_market_regime(strategy_config.regime_adx_threshold)
+                        if regime == "TRENDING_DOWN":
+                            regime_ok = False
+                        if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
+                            regime_ok = False
+                    if regime_ok and indicators.is_entry_signal(price):
                         size = min(3.0, portfolio.state.available_capital)
                         if size >= 1.0:  # Minimum position size
                             if portfolio.open_position(

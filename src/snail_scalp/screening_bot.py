@@ -47,6 +47,14 @@ class TokenTrader:
         if not self.last_price:
             return False
         
+        # Regime gate: skip long entries in TRENDING_DOWN if configured
+        if strategy_config.skip_trending_down_entries:
+            regime = self.indicators.detect_market_regime(strategy_config.regime_adx_threshold)
+            if regime == "TRENDING_DOWN":
+                return False
+            if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
+                return False
+        
         # Use existing strategy
         return self.indicators.is_entry_signal(
             self.last_price,
