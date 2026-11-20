@@ -22,6 +22,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(line_buffering=True)
 
+from dataclasses import asdict
 from snail_scalp.config import (
     trading_config,
     strategy_config,
@@ -384,17 +385,7 @@ def run_real_data_simulation(args):
         risk = RiskManager(simulate=True)
         
         trader = Trader(
-            strategy_config={
-                "rsi_oversold_min": strategy_config.rsi_oversold_min,
-                "rsi_oversold_max": strategy_config.rsi_oversold_max,
-                "min_band_width_percent": strategy_config.min_band_width_percent,
-                "primary_allocation": strategy_config.primary_allocation,
-                "dca_allocation": strategy_config.dca_allocation,
-                "dca_trigger_percent": strategy_config.dca_trigger_percent,
-                "tp1_percent": strategy_config.tp1_percent,
-                "tp2_percent": strategy_config.tp2_percent,
-                "stop_loss_percent": strategy_config.stop_loss_percent,
-            },
+            strategy_config=asdict(strategy_config),
             risk_manager=risk,
             simulate=True
         )
@@ -475,17 +466,7 @@ class TradingBot:
         )
 
         self.trader = Trader(
-            strategy_config={
-                "rsi_oversold_min": strategy_config.rsi_oversold_min,
-                "rsi_oversold_max": strategy_config.rsi_oversold_max,
-                "min_band_width_percent": strategy_config.min_band_width_percent,
-                "primary_allocation": strategy_config.primary_allocation,
-                "dca_allocation": strategy_config.dca_allocation,
-                "dca_trigger_percent": strategy_config.dca_trigger_percent,
-                "tp1_percent": strategy_config.tp1_percent,
-                "tp2_percent": strategy_config.tp2_percent,
-                "stop_loss_percent": strategy_config.stop_loss_percent,
-            },
+            strategy_config=asdict(strategy_config),
             risk_manager=self.risk,
             simulate=self.simulate,
             results_file=args.results,

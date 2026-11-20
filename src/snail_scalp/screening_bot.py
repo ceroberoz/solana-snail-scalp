@@ -8,7 +8,7 @@ the scalping strategy.
 import asyncio
 import aiohttp
 from typing import List, Optional, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from snail_scalp.config import trading_config, strategy_config
@@ -207,7 +207,7 @@ class ScreeningTradingBot:
         while self.running:
             try:
                 # Check trading window
-                current_time = datetime.now()
+                current_time = datetime.now(timezone.utc)
                 in_window = self.risk.is_trading_window(current_time)
                 
                 if not in_window:

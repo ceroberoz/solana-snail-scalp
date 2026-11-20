@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -94,13 +94,16 @@ class RiskManager:
     def is_trading_window(self, current_time: Optional[datetime] = None) -> bool:
         """Check if within trading hours (09:00-11:00 UTC)"""
         if current_time is None:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
 
-        # Handle both timezone-aware and naive datetimes
+        # Treat naive datetimes as UTC for consistent window checks
+        if getattr(current_time, "tzinfo", None) is None:
+            current_time = current_time.replace(tzinfo=timezone.utc)
+
         try:
             hour = current_time.hour
         except AttributeError:
-            hour = datetime.now().hour
+            hour = datetime.now(timezone.utc).hour
 
         return self.trading_start_utc <= hour < self.trading_end_utc
 

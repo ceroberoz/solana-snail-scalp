@@ -1,7 +1,7 @@
 """Configuration - ADJUST THESE BEFORE TRADING"""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Any
 
 
@@ -93,6 +93,35 @@ class StrategyConfig:
     skip_choppy_markets: bool = True  # Skip trades when choppy
     position_size_by_regime: bool = True  # Adjust size by regime
     regime_size_multiplier: dict = None  # Will be set in __post_init__
+
+    def __post_init__(self):
+        if self.regime_size_multiplier is None:
+            self.regime_size_multiplier = {
+                "TRENDING_UP": 1.2,
+                "TRENDING_DOWN": 0.7,
+                "RANGING": 1.0,
+                "CHOPPY": 0.6,
+            }
+        # Backwards-compatible aliases
+        if not hasattr(self, "_dca_allocation"):
+            pass
+
+    # Backwards-compatible aliases for older code paths
+    @property
+    def dca_allocation(self) -> float:
+        return self.dca_allocation_ratio
+
+    @dca_allocation.setter
+    def dca_allocation(self, value: float):
+        self.dca_allocation_ratio = value
+
+    @property
+    def stop_loss_percent(self) -> float:
+        return self.stop_loss_max_percent
+
+    @stop_loss_percent.setter
+    def stop_loss_percent(self, value: float):
+        self.stop_loss_max_percent = value
 
 
 @dataclass
