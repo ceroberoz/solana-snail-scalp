@@ -197,6 +197,12 @@ Commands:
         help="Use aggressive profile: wider entries, larger positions, looser risk limits",
     )
 
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Fast simulation: skip per-candle delays",
+    )
+
     return parser.parse_args()
 
 
@@ -537,7 +543,10 @@ class TradingBot:
 
                     # Fast-forward when outside trading window in simulation
                     if self.simulate and self.data_feed.sim_feed:
-                        self.data_feed.sim_feed.skip_sleep = not in_window
+                        if getattr(self.args, "fast", False):
+                            self.data_feed.sim_feed.skip_sleep = True
+                        else:
+                            self.data_feed.sim_feed.skip_sleep = not in_window
 
                     if not in_window:
                         # Only print every hour to reduce spam
