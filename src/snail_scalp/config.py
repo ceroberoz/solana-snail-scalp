@@ -157,6 +157,47 @@ def apply_profile(profile: str = "default"):
         strategy_config.__dict__.update(defaults_s.__dict__)
         return
 
+    if profile == "balanced":
+        trading_config.max_position_usd = 8.0
+        trading_config.emergency_reserve = 3.0
+        trading_config.daily_loss_limit_usd = 2.00
+        trading_config.max_consecutive_losses = 4
+        trading_config.max_slippage_percent = 1.0
+        trading_config.trading_start_utc = 8
+        trading_config.trading_end_utc = 22
+        strategy_config.rsi_oversold_min = 18
+        strategy_config.rsi_oversold_max = 42
+        strategy_config.min_band_width_percent = 1.5
+        strategy_config.primary_allocation = 4.0
+        strategy_config.dca_allocation_ratio = 0.6
+        strategy_config.dca_trigger_percent = 0.75
+        strategy_config.tp1_percent = 2.0
+        strategy_config.tp2_percent = 3.5
+        strategy_config.stop_loss_max_percent = 4.0
+        strategy_config.stop_loss_atr_multiplier = 1.75
+        strategy_config.use_breakeven_stop = True
+        strategy_config.use_trailing_stop = True
+        strategy_config.trailing_stop_percent = 1.5
+        strategy_config.max_hold_time_minutes = 180
+        strategy_config.use_time_exit = True
+        strategy_config.use_partial_scaling = True
+        strategy_config.min_position_ratio = 0.6
+        strategy_config.max_position_ratio = 1.75
+        strategy_config.use_correlation_check = True
+        strategy_config.max_correlated_positions = 2
+        strategy_config.correlation_threshold = 0.8
+        strategy_config.use_regime_detection = True
+        strategy_config.skip_choppy_markets = True
+        strategy_config.skip_trending_down_entries = True
+        strategy_config.position_size_by_regime = True
+        strategy_config.regime_size_multiplier = {
+            "TRENDING_UP": 1.2,
+            "TRENDING_DOWN": 0.7,
+            "RANGING": 1.0,
+            "CHOPPY": 0.6,
+        }
+        return
+
     if profile == "aggressive":
         # Trading config
         trading_config.max_position_usd = 10.0

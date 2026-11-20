@@ -198,6 +198,14 @@ Commands:
     )
 
     parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        choices=["default", "balanced", "aggressive"],
+        help="Risk/strategy profile to use (default, balanced, aggressive)",
+    )
+
+    parser.add_argument(
         "--fast",
         action="store_true",
         help="Fast simulation: skip per-candle delays",
@@ -658,9 +666,12 @@ def main():
     """Main entry point"""
     args = parse_arguments()
 
+    profile = getattr(args, "profile", None)
     if getattr(args, "aggressive", False):
-        apply_profile("aggressive")
-        print("[PROFILE] Aggressive profile applied")
+        profile = "aggressive"
+    if profile and profile != "default":
+        apply_profile(profile)
+        print(f"[PROFILE] {profile.capitalize()} profile applied")
 
     # Reset if requested
     if args.reset:
