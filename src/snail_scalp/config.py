@@ -145,6 +145,62 @@ SIMULATION_CONFIG = {
     "results_file": "data/simulation_results.json",
 }
 
+def apply_profile(profile: str = "default"):
+    """Apply a named risk/strategy profile to the global config instances (in place)."""
+    global trading_config, strategy_config
+
+    if profile == "default":
+        defaults_t = TradingConfig()
+        defaults_s = StrategyConfig()
+        trading_config.__dict__.update(defaults_t.__dict__)
+        strategy_config.__dict__.update(defaults_s.__dict__)
+        return
+
+    if profile == "aggressive":
+        # Trading config
+        trading_config.max_position_usd = 10.0
+        trading_config.emergency_reserve = 2.0
+        trading_config.daily_loss_limit_usd = 3.00
+        trading_config.max_consecutive_losses = 3
+        trading_config.max_slippage_percent = 1.5
+        trading_config.trading_start_utc = 0
+        trading_config.trading_end_utc = 23
+        # Strategy config
+        strategy_config.rsi_oversold_min = 15
+        strategy_config.rsi_oversold_max = 45
+        strategy_config.min_band_width_percent = 1.0
+        strategy_config.primary_allocation = 5.0
+        strategy_config.dca_allocation_ratio = 0.75
+        strategy_config.dca_trigger_percent = 0.5
+        strategy_config.tp1_percent = 1.5
+        strategy_config.tp2_percent = 3.0
+        strategy_config.stop_loss_max_percent = 5.0
+        strategy_config.stop_loss_atr_multiplier = 2.0
+        strategy_config.use_breakeven_stop = False
+        strategy_config.use_trailing_stop = True
+        strategy_config.trailing_stop_percent = 2.0
+        strategy_config.max_hold_time_minutes = 240
+        strategy_config.use_time_exit = False
+        strategy_config.use_partial_scaling = True
+        strategy_config.min_position_ratio = 0.75
+        strategy_config.max_position_ratio = 2.0
+        strategy_config.use_correlation_check = True
+        strategy_config.max_correlated_positions = 3
+        strategy_config.correlation_threshold = 0.85
+        strategy_config.use_regime_detection = True
+        strategy_config.skip_choppy_markets = False
+        strategy_config.position_size_by_regime = True
+        strategy_config.regime_size_multiplier = {
+            "TRENDING_UP": 1.2,
+            "TRENDING_DOWN": 0.7,
+            "RANGING": 1.0,
+            "CHOPPY": 0.6,
+        }
+        return
+
+    raise ValueError(f"Unknown profile: {profile}")
+
+
 # Global config instances
 trading_config = TradingConfig()
 strategy_config = StrategyConfig()

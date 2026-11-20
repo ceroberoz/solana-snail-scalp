@@ -26,6 +26,7 @@ from dataclasses import asdict
 from snail_scalp.config import (
     trading_config,
     strategy_config,
+    apply_profile,
     SIMULATION_CONFIG,
     PAIR_ADDRESS,
 )
@@ -188,6 +189,12 @@ Commands:
         type=str,
         default=SIMULATION_CONFIG["results_file"],
         help=f"Path to save simulation results (default: {SIMULATION_CONFIG['results_file']})",
+    )
+
+    parser.add_argument(
+        "--aggressive",
+        action="store_true",
+        help="Use aggressive profile: wider entries, larger positions, looser risk limits",
     )
 
     return parser.parse_args()
@@ -641,6 +648,10 @@ class TradingBot:
 def main():
     """Main entry point"""
     args = parse_arguments()
+
+    if getattr(args, "aggressive", False):
+        apply_profile("aggressive")
+        print("[PROFILE] Aggressive profile applied")
 
     # Reset if requested
     if args.reset:
