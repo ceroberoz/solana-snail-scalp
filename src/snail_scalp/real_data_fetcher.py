@@ -12,7 +12,7 @@ import aiohttp
 import json
 import csv
 from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -236,17 +236,7 @@ class RealDataSimulation:
         risk = RiskManager(simulate=True)
         
         trader = Trader(
-            strategy_config={
-                "rsi_oversold_min": strategy_config.rsi_oversold_min,
-                "rsi_oversold_max": strategy_config.rsi_oversold_max,
-                "min_band_width_percent": strategy_config.min_band_width_percent,
-                "primary_allocation": strategy_config.primary_allocation,
-                "dca_allocation": strategy_config.dca_allocation,
-                "dca_trigger_percent": strategy_config.dca_trigger_percent,
-                "tp1_percent": strategy_config.tp1_percent,
-                "tp2_percent": strategy_config.tp2_percent,
-                "stop_loss_percent": strategy_config.stop_loss_percent,
-            },
+            strategy_config=asdict(strategy_config),
             risk_manager=risk,
             simulate=True,
             results_file=f"data/real_simulation_{self.token_address[:8]}.json",

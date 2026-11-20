@@ -8,7 +8,7 @@ the scalping strategy.
 import asyncio
 import aiohttp
 from typing import List, Optional, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from snail_scalp.config import trading_config, strategy_config
@@ -46,6 +46,14 @@ class TokenTrader:
         """Check if we should enter a position"""
         if not self.last_price:
             return False
+        
+        # Regime gate: skip long entries in TRENDING_DOWN if configured
+        if strategy_config.skip_trending_down_entries:
+            regime = self.indicators.detect_market_regime(strategy_config.regime_adx_threshold)
+            if regime == "TRENDING_DOWN":
+                return False
+            if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
+                return False
         
         # Use existing strategy
         return self.indicators.is_entry_signal(
@@ -207,7 +215,7 @@ class ScreeningTradingBot:
         while self.running:
             try:
                 # Check trading window
-                current_time = datetime.now()
+                current_time = datetime.now(timezone.utc)
                 in_window = self.risk.is_trading_window(current_time)
                 
                 if not in_window:

@@ -49,6 +49,8 @@ class Trade:
     
     # US-1.5: Market regime at entry
     entry_regime: str = ""
+    # US-3.2: Confidence score at entry
+    entry_confidence: float = 0.0
     
     def __post_init__(self):
         if self.highest_price == 0.0:
@@ -75,6 +77,8 @@ class Trade:
             "close_reason": self.close_reason.value if self.close_reason else None,
             "pnl_usd": self.pnl_usd,
             "pnl_pct": self.pnl_pct,
+            "entry_regime": self.entry_regime,
+            "entry_confidence": self.entry_confidence,
         }
 
 
@@ -138,13 +142,16 @@ class Trader:
         if not self.risk.is_trading_window():
             return False
 
-        # US-1.5: Check market regime (skip choppy markets)
+        # US-1.5: Check market regime (skip choppy / downtrend markets)
         if self.config.get("use_regime_detection", True):
             regime = indicators.detect_market_regime(
                 self.config.get("regime_adx_threshold", 25.0)
             )
             if regime == "CHOPPY" and self.config.get("skip_choppy_markets", True):
                 print(f"[SKIP] Market regime is CHOPPY - skipping trade")
+                return False
+            if regime == "TRENDING_DOWN" and self.config.get("skip_trending_down_entries", True):
+                print(f"[SKIP] Market regime is TRENDING_DOWN - skipping long entry")
                 return False
         else:
             regime = "UNKNOWN"
@@ -222,13 +229,20 @@ class Trader:
         scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
         scale_levels_hit = [False] * len(scale_config)
         
+        confidence = 0.0
+        try:
+            confidence = indicators.calculate_confidence_score()
+        except Exception:
+            confidence = 0.0
+        
         self.active_position = Trade(
             entry_price=price, 
             size_usd=size_usd, 
             entry_time=time.time(),
             scale_levels_hit=scale_levels_hit,
             final_position_size=size_usd,
-            entry_regime=regime
+            entry_regime=regime,
+            entry_confidence=confidence,
         )
 
         print(f"[OK] Position opened: ${size_usd:.2f} @ ${price:.4f}")
@@ -435,8 +449,41 @@ class Trader:
         self.trade_history.append(pos)
         self._save_history()
 
+        # Append to trade attribution log
+        try:
+            self._log_trade(pos, price, total_pnl, total_pct, reason)
+        except Exception:
+            pass
+
         # Clear active position
         self.active_position = None
+
+    def _log_trade(self, pos: Trade, exit_price: float, total_pnl: float, total_pct: float, reason: CloseReason):
+        """Append a trade record with regime/confidence attribution to CSV."""
+        import csv
+        log_path = Path("data/trade_attribution.csv")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not log_path.exists()
+        with open(log_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            if write_header:
+                writer.writerow([
+                    "exit_time", "entry_price", "exit_price", "size_usd",
+                    "pnl_usd", "pnl_pct", "close_reason",
+                    "entry_regime", "entry_confidence", "entry_time",
+                ])
+            writer.writerow([
+                datetime.fromtimestamp(pos.exit_time).isoformat() if pos.exit_time else "",
+                pos.entry_price,
+                exit_price,
+                pos.size_usd,
+                round(total_pnl, 4),
+                round(total_pct, 4),
+                reason.value if reason else "",
+                pos.entry_regime,
+                round(pos.entry_confidence, 2),
+                datetime.fromtimestamp(pos.entry_time).isoformat(),
+            ])
 
     def get_summary(self) -> Dict[str, Any]:
         """Get trading summary"""
