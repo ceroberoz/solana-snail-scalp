@@ -168,16 +168,6 @@ class Trader:
         else:
             regime = "UNKNOWN"
 
-        # Confidence gate
-        if self.config.get("use_confidence_gate", True):
-            try:
-                conf = indicators.calculate_confidence_score()
-            except Exception:
-                conf = 100.0
-            if conf < self.config.get("min_confidence_score", 50.0):
-                print(f"[SKIP] Confidence {conf:.0f} < {self.config.get('min_confidence_score',50.0):.0f} - skipping trade")
-                return False
-
         # Short entry path (bear market)
         enable_shorts = self.config.get("enable_short_entries", False)
         if regime == "TRENDING_DOWN" and enable_shorts:
@@ -189,6 +179,16 @@ class Trader:
             ):
                 return await self._execute_entry(current_price, indicators, available_capital, regime, symbol, side="short")
             return False
+
+        # Confidence gate (longs only)
+        if self.config.get("use_confidence_gate", True):
+            try:
+                conf = indicators.calculate_confidence_score()
+            except Exception:
+                conf = 100.0
+            if conf < self.config.get("min_confidence_score", 50.0):
+                print(f"[SKIP] Confidence {conf:.0f} < {self.config.get('min_confidence_score',50.0):.0f} - skipping trade")
+                return False
 
         # Long entry path
         if regime == "TRENDING_DOWN" and self.config.get("skip_trending_down_entries", True) and not enable_shorts:
@@ -471,9 +471,20 @@ class Trader:
         if current_price < getattr(pos, "lowest_price", entry) or getattr(pos, "lowest_price", 0) == 0:
             pos.lowest_price = current_price if getattr(pos, "lowest_price", 0) == 0 or current_price < pos.lowest_price else pos.lowest_price
 
-        # Stop loss (above entry)
-        stop_pct = self.config.get("short_stop_percent", 3.0)
-        stop_price = entry * (1 + stop_pct / 100)
+        # Stop loss (above entry) - ATR-based when available
+        use_atr = self.config.get("short_use_atr_stop", True)
+        atr_mult = self.config.get("short_stop_atr_multiplier", 1.5)
+        max_pct = self.config.get("short_stop_percent", 3.0)
+        if use_atr:
+            atr = indicators.calculate_atr()
+            if atr > 0:
+                atr_stop = entry + (atr * atr_mult)
+                cap_stop = entry * (1 + max_pct / 100)
+                stop_price = min(atr_stop, cap_stop)
+            else:
+                stop_price = entry * (1 + max_pct / 100)
+        else:
+            stop_price = entry * (1 + max_pct / 100)
         if current_price >= stop_price:
             print(f"\n[STOP] SHORT STOP LOSS at ${current_price:.4f} ({pnl_pct:+.2f}%)")
             await self._close_position(current_price, CloseReason.STOP_LOSS)

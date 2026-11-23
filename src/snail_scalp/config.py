@@ -91,6 +91,8 @@ class StrategyConfig:
     short_allocation: float = 3.0
     short_stop_percent: float = 3.0
     short_tp_percent: float = 2.5
+    short_use_atr_stop: bool = True
+    short_stop_atr_multiplier: float = 1.5
     
     # US-3.3: Correlation Risk Management
     use_correlation_check: bool = True  # Enable correlation risk management
