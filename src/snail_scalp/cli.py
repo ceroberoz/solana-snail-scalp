@@ -211,6 +211,12 @@ Commands:
         help="Fast simulation: skip per-candle delays",
     )
 
+    parser.add_argument(
+        "--dashboard",
+        action="store_true",
+        help="Show monitoring dashboard (portfolio, attribution, last backtest)",
+    )
+
     return parser.parse_args()
 
 
@@ -662,6 +668,69 @@ class TradingBot:
         print("=" * 60)
 
 
+
+
+def run_dashboard(args):
+    """Print a monitoring dashboard from saved state and logs."""
+    import json, os
+    from pathlib import Path
+
+    print("\n" + "="*70)
+    print("MONITORING DASHBOARD")
+    print("="*70)
+
+    # Portfolio state
+    for fname in ["data/simulation_portfolio.json", "data/portfolio_state.json"]:
+        p = Path(fname)
+        if p.exists():
+            try:
+                d = json.load(open(p))
+                print(f"\nPortfolio ({fname}):")
+                print(f"  Initial: ${d.get('initial_capital',0):.2f}  Available: ${d.get('available_capital',0):.2f}")
+                print(f"  Realized PnL: ${d.get('total_realized_pnl',0):+.2f}  Unrealized: ${d.get('total_unrealized_pnl',0):+.2f}")
+                print(f"  Open positions: {len(d.get('positions',{}))}")
+            except Exception as e:
+                print(f"  (could not read {fname}: {e})")
+            break
+    else:
+        print("\nNo portfolio state file found.")
+
+    # Trade attribution
+    attr = Path("data/trade_attribution.csv")
+    if attr.exists():
+        import csv
+        rows = list(csv.DictReader(open(attr)))
+        if rows:
+            wins = sum(1 for r in rows if float(r["pnl_usd"]) > 0)
+            pnl = sum(float(r["pnl_usd"]) for r in rows)
+            print(f"\nTrade Attribution: {len(rows)} trades, {wins/len(rows)*100:.1f}% win, ${pnl:+.2f}")
+            from collections import defaultdict
+            by = defaultdict(lambda: [0,0.0,0])
+            for r in rows:
+                g = r.get("entry_regime") or "UNKNOWN"
+                v = float(r["pnl_usd"])
+                by[g][0]+=1; by[g][1]+=v
+                if v>0: by[g][2]+=1
+            print("  By regime:")
+            for g,(n,p,w) in sorted(by.items()):
+                print(f"    {g:<16} n={n:<3} win={w/n*100:5.1f}% pnl=${p:+.2f}")
+    else:
+        print("\nNo trade attribution log yet (run a simulation first).")
+
+    # Last backtest
+    bt = Path("data/backtest_report.json")
+    if bt.exists():
+        try:
+            d = json.load(open(bt))["performance"]
+            print(f"\nLast Backtest: return {d['total_return_pct']:+.2f}%, {d['total_trades']} trades, "
+                  f"win {d['win_rate']:.1f}%, maxDD {d['max_drawdown_pct']:.2f}%, sharpe {d['sharpe_ratio']:.2f}")
+        except Exception as e:
+            print(f"\n(could not read backtest report: {e})")
+
+    print("\n" + "="*70)
+    return 0
+
+
 def main():
     """Main entry point"""
     args = parse_arguments()
@@ -687,6 +756,9 @@ def main():
     # Route to appropriate mode
     if args.screen:
         return run_screening(args)
+
+    if args.dashboard:
+        return run_dashboard(args)
 
     if args.backtest:
         return run_backtest(args)
