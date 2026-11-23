@@ -51,6 +51,8 @@ class Trade:
     entry_regime: str = ""
     # US-3.2: Confidence score at entry
     entry_confidence: float = 0.0
+    # Token symbol for attribution
+    symbol: str = ""
     
     def __post_init__(self):
         if self.highest_price == 0.0:
@@ -79,6 +81,7 @@ class Trade:
             "pnl_pct": self.pnl_pct,
             "entry_regime": self.entry_regime,
             "entry_confidence": self.entry_confidence,
+            "symbol": self.symbol,
         }
 
 
@@ -91,11 +94,13 @@ class Trader:
         risk_manager,
         simulate: bool = False,
         results_file: str = "data/trades.json",
+        symbol: str = "",
     ):
         self.config = strategy_config
         self.risk = risk_manager
         self.simulate = simulate
         self.results_file = Path(results_file)
+        self.symbol = symbol
 
         # Use different results file for simulation
         if simulate:
@@ -184,11 +189,11 @@ class Trader:
                         print(f"[SKIP] Correlation risk: {symbol} correlated with {correlated}")
                         return False
             
-            return await self._execute_entry(current_price, indicators, available_capital, regime)
+            return await self._execute_entry(current_price, indicators, available_capital, regime, symbol)
 
         return False
 
-    async def _execute_entry(self, price: float, indicators, available_capital: float, regime: str = "") -> bool:
+    async def _execute_entry(self, price: float, indicators, available_capital: float, regime: str = "", symbol: str = "") -> bool:
         """Execute entry order with Sprint 5-6 enhancements"""
         base_size = self.config.get("primary_allocation", 3.0)
         
@@ -253,6 +258,7 @@ class Trader:
             final_position_size=size_usd,
             entry_regime=regime,
             entry_confidence=confidence,
+            symbol=symbol,
         )
 
         print(f"[OK] Position opened: ${size_usd:.2f} @ ${price:.4f}")
@@ -478,11 +484,12 @@ class Trader:
             writer = csv.writer(f)
             if write_header:
                 writer.writerow([
-                    "exit_time", "entry_price", "exit_price", "size_usd",
+                    "symbol", "exit_time", "entry_price", "exit_price", "size_usd",
                     "pnl_usd", "pnl_pct", "close_reason",
                     "entry_regime", "entry_confidence", "entry_time",
                 ])
             writer.writerow([
+                getattr(pos, "symbol", "") or getattr(self, "symbol", ""),
                 datetime.fromtimestamp(pos.exit_time).isoformat() if pos.exit_time else "",
                 pos.entry_price,
                 exit_price,

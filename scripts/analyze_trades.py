@@ -34,6 +34,21 @@ def main():
     for regime, (n, pnl, w) in sorted(by_regime.items()):
         print(f"{regime:<16}{n:>8}{(w/n*100 if n else 0):>9.1f}%{pnl:>10.2f}")
 
+    # By symbol
+    by_sym = defaultdict(lambda: [0, 0.0, 0])
+    for r in rows:
+        sym = r.get("symbol") or "UNKNOWN"
+        pnl = float(r["pnl_usd"])
+        by_sym[sym][0] += 1
+        by_sym[sym][1] += pnl
+        if pnl > 0:
+            by_sym[sym][2] += 1
+
+    print("\nBy symbol:")
+    print(f"{'Symbol':<12}{'Trades':>8}{'WinRate':>10}{'PnL':>10}")
+    for sym, (n, pnl, w) in sorted(by_sym.items()):
+        print(f"{sym:<12}{n:>8}{(w/n*100 if n else 0):>9.1f}%{pnl:>10.2f}")
+
     # Confidence buckets
     buckets = defaultdict(lambda: [0, 0.0, 0])
     for r in rows:

@@ -497,6 +497,7 @@ class TradingBot:
             risk_manager=self.risk,
             simulate=self.simulate,
             results_file=args.results,
+            symbol="SOL",
         )
 
         self.running = True
@@ -623,7 +624,7 @@ class TradingBot:
                         await self.trader.manage_position(current_price, self.indicators)
                     else:
                         # Look for entry
-                        await self.trader.check_entry(current_price, self.indicators, self.capital)
+                        await self.trader.check_entry(current_price, self.indicators, self.capital, symbol="SOL")
 
                     # Wait for next check
                     if self.simulate:
