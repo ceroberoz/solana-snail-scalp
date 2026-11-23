@@ -96,6 +96,10 @@ class StrategyConfig:
     regime_lookback: int = 14  # Lookback for regime calc
     skip_choppy_markets: bool = True  # Skip trades when choppy
     skip_trending_down_entries: bool = True  # Skip long entries in TRENDING_DOWN regime
+
+    # Phase filter (memecoin momentum)
+    use_phase_filter: bool = True  # Only enter in allowed momentum phases
+    allowed_phases: tuple = ("early", "accel")  # Phases considered tradeable
     position_size_by_regime: bool = True  # Adjust size by regime
     regime_size_multiplier: dict = None  # Will be set in __post_init__
 

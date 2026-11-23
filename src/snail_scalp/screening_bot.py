@@ -305,6 +305,12 @@ class ScreeningTradingBot:
         
         else:
             # Look for entry
+            # Phase filter: only trade allowed momentum phases
+            token_phase = getattr(token_data, "phase", None)
+            if strategy_config.use_phase_filter and token_phase is not None:
+                if token_phase not in strategy_config.allowed_phases:
+                    return
+
             # Only enter if we have enough indicator data
             if len(trader.price_history) >= strategy_config.bb_period:
                 if trader.check_entry_signal():
