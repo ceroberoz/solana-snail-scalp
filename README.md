@@ -138,6 +138,24 @@ The bot is long-only by default. In `TRENDING_DOWN` regimes it normally skips en
 uv run python -m snail_scalp --simulate --profile aggressive --fast
 ```
 
+## Live Trading (Jupiter)
+
+Disable simulation to trade live via Jupiter Swap API v2:
+
+```bash
+# Install signing deps
+pip install solders base58
+
+# Provide wallet + (optional) API key
+export SOLANA_PRIVATE_KEY="<base58 or JSON array>"
+export JUPITER_API_KEY="<your key>"
+
+# Live single-token mode
+uv run python -m snail_scalp --capital 20
+```
+
+The trader fetches a quote, builds/signs the transaction, and lands it through Jupiter `/execute`. If no signer is available, the unsigned tx is saved to `data/pending_swap.json` for manual signing.
+
 ## Monitoring
 
 ```bash

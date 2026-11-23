@@ -146,8 +146,8 @@ class StrategyConfig:
 @dataclass
 class APIConfig:
     dexscreener: str = "https://api.dexscreener.com/latest/dex/pairs/solana/{pair}"
-    jupiter_quote: str = "https://quote-api.jup.ag/v6/quote"
-    jupiter_swap: str = "https://quote-api.jup.ag/v6/swap"
+    jupiter_quote: str = "https://api.jup.ag/swap/v2/order"
+    jupiter_swap: str = "https://api.jup.ag/swap/v2/execute"
     rpc: str = "https://solana-mainnet.rpc.extrnode.com"  # Free public - REPLACE WITH YOURS
 
 

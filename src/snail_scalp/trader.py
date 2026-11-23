@@ -264,8 +264,20 @@ class Trader:
         if self.simulate:
             print(f"   [SIMULATION] Position opened")
         else:
-            # TODO: Jupiter API integration here
-            print(f"   [LIVE] Jupiter swap would execute here")
+            # Jupiter live swap (requires wallet; see docs/INTEGRATION.md)
+            try:
+                from snail_scalp.jupiter import swap, load_keypair
+                from snail_scalp.config import TOKEN_IN, TOKEN_OUT
+                amount = int(size_usd * 1_000_000)  # USDC (6 decimals)
+                kp = load_keypair()
+                taker = str(kp.pubkey()) if kp is not None else None
+                slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)
+                res = await swap(TOKEN_IN, TOKEN_OUT, amount, taker=taker, slippage_bps=slippage_bps)
+                print(f"   [LIVE] Jupiter result: {res.get('status')}")
+                if res.get("status") == "pending_signature":
+                    print(f"   Unsigned tx saved to {res.get('file')} (set SOLANA_PRIVATE_KEY or SOLANA_KEYPAIR_PATH to auto-sign)")
+            except Exception as e:
+                print(f"   [LIVE] Jupiter swap error: {e}")
 
         # US-2.6: Initialize partial scaling tracking
         scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
@@ -569,6 +581,28 @@ class Trader:
         self.total_pnl += total_pnl
         self.trade_history.append(pos)
         self._save_history()
+
+        # Live swap back (best-effort)
+        if not self.simulate:
+            try:
+                import asyncio
+                from snail_scalp.jupiter import swap, load_keypair
+                from snail_scalp.config import TOKEN_IN, TOKEN_OUT
+                kp = load_keypair()
+                taker = str(kp.pubkey()) if kp is not None else None
+                side = getattr(pos, "side", "long")
+                if side == "long":
+                    in_mint, out_mint = TOKEN_OUT, TOKEN_IN
+                else:
+                    in_mint, out_mint = TOKEN_IN, TOKEN_OUT
+                amount = int(size * 1_000_000) if side == "short" else int(size_usd_to_lamports(size, price))
+                # amount in smallest units of input mint; approximate using size_usd
+                amount = int(size * (1_000_000 if in_mint == TOKEN_IN else 1_000_000_000))
+                slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)
+                res = await swap(in_mint, out_mint, amount, taker=taker, slippage_bps=slippage_bps)
+                print(f"   [LIVE] Close swap result: {res.get('status')}")
+            except Exception as e:
+                print(f"   [LIVE] Close swap error: {e}")
 
         # Append to trade attribution log
         try:

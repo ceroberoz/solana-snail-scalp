@@ -157,32 +157,33 @@ class CustomRiskManager(RiskManager):
 
 ### Jupiter Swap (Live Trading)
 
-```python
-import aiohttp
+The bot ships a Jupiter v2 client in `src/snail_scalp/jupiter.py`:
 
-async def execute_jupiter_swap(
-    input_mint: str,
-    output_mint: str,
-    amount: int,  # In lamports/smallest unit
-    slippage_bps: int = 50  # 0.5%
-):
-    """Execute swap via Jupiter API"""
-    
-    # Get quote
-    quote_url = "https://quote-api.jup.ag/v6/quote"
-    params = {
-        "inputMint": input_mint,
-        "outputMint": output_mint,
-        "amount": amount,
-        "slippageBps": slippage_bps,
-    }
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.get(quote_url, params=params) as resp:
-            quote = await resp.json()
-        
-        # Execute swap (requires wallet signing)
-        # ... implementation
+```python
+from snail_scalp.jupiter import swap, load_keypair
+
+# Buy: USDC -> SOL
+res = await swap(
+    input_mint="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",  # USDC
+    output_mint="So11111111111111111111111111111111111111112",  # SOL
+    amount=3_000_000,  # 3 USDC (6 decimals)
+    taker=wallet_pubkey,  # optional; enables tx building
+    slippage_bps=80,      # 0.8%
+)
+# res["status"] in {"quote","executed","pending_signature","execute_failed"}
+```
+
+Endpoints used (Jupiter Swap API v2):
+- `GET https://api.jup.ag/swap/v2/order` — quote (+ transaction when `taker` provided)
+- `POST https://api.jup.ag/swap/v2/execute` — land a signed transaction
+
+Wallet signing:
+- Set `SOLANA_PRIVATE_KEY` (base58 or JSON array) or `SOLANA_KEYPAIR_PATH` (JSON keypair file).
+- Optional: `JUPITER_API_KEY` for higher rate limits.
+- If no signer is available, the unsigned transaction is saved to `data/pending_swap.json` for external signing.
+- Signing requires the optional `solders` package (`pip install solders base58`).
+
+Live mode is activated by disabling simulation (`simulate=False`); the trader calls Jupiter automatically on entry and exit.
 ```
 
 ### Webhook Notifications

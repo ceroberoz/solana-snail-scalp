@@ -10,6 +10,7 @@ All notable changes to the Solana Snail Scalp Bot project.
 - **`--dashboard`**: monitoring view combining portfolio state, trade attribution by regime/confidence, and last backtest.
 - **Trade attribution logging**: every closed trade is appended to `data/trade_attribution.csv` with entry regime and confidence; `scripts/analyze_trades.py` summarizes by regime/confidence.
 - **Short-side / bear-market handling**: in `TRENDING_DOWN` regimes the bot can short (upper BB, overbought RSI 60-80) when `enable_short_entries=True` (enabled in aggressive profile). Includes stop/TP/trailing/time exit and correct PnL sign.
+- **Jupiter live trading**: `src/snail_scalp/jupiter.py` implements Jupiter Swap API v2 (`/order`, `/execute`), wired into the trader's live path. Signing via optional `solders`/`base58`; unsigned tx saved to `data/pending_swap.json` when no signer. Config URLs updated to current endpoints.
 - **Confidence gating**: `use_confidence_gate` / `min_confidence_score` config to skip low-confidence entries.
 - **Trending-down entry filter**: `skip_trending_down_entries` skips long entries in `TRENDING_DOWN` regimes (configurable per profile).
 - **Deterministic backtests**: `BacktestEngine` now accepts a `seed` (default 42) and uses an isolated portfolio state file for reproducible results.
