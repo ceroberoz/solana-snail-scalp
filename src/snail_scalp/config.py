@@ -83,6 +83,14 @@ class StrategyConfig:
     # US-3.2: Confidence gating
     use_confidence_gate: bool = True  # Skip entries below min confidence
     min_confidence_score: float = 50.0  # Minimum confidence to enter
+
+    # Short / Bear-market handling
+    enable_short_entries: bool = False  # Allow shorting in TRENDING_DOWN regimes
+    rsi_overbought_min: int = 60
+    rsi_overbought_max: int = 80
+    short_allocation: float = 3.0
+    short_stop_percent: float = 3.0
+    short_tp_percent: float = 2.5
     
     # US-3.3: Correlation Risk Management
     use_correlation_check: bool = True  # Enable correlation risk management
@@ -242,6 +250,7 @@ def apply_profile(profile: str = "default"):
         strategy_config.skip_choppy_markets = False
         strategy_config.skip_trending_down_entries = False
         strategy_config.min_confidence_score = 50.0
+        strategy_config.enable_short_entries = True
         strategy_config.position_size_by_regime = True
         strategy_config.regime_size_multiplier = {
             "TRENDING_UP": 1.2,

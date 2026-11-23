@@ -49,14 +49,20 @@ class Trade:
     
     # US-1.5: Market regime at entry
     entry_regime: str = ""
+    # Short tracking
+    lowest_price: float = 0.0
     # US-3.2: Confidence score at entry
     entry_confidence: float = 0.0
     # Token symbol for attribution
     symbol: str = ""
+    # Position side: long or short
+    side: str = "long"
     
     def __post_init__(self):
         if self.highest_price == 0.0:
             self.highest_price = self.entry_price
+        if self.lowest_price == 0.0:
+            self.lowest_price = self.entry_price
         if self.scale_levels_hit is None:
             self.scale_levels_hit = []
         if self.final_position_size == 0.0:
@@ -82,6 +88,7 @@ class Trade:
             "entry_regime": self.entry_regime,
             "entry_confidence": self.entry_confidence,
             "symbol": self.symbol,
+            "side": self.side,
         }
 
 
@@ -171,6 +178,23 @@ class Trader:
                 print(f"[SKIP] Confidence {conf:.0f} < {self.config.get('min_confidence_score',50.0):.0f} - skipping trade")
                 return False
 
+        # Short entry path (bear market)
+        enable_shorts = self.config.get("enable_short_entries", False)
+        if regime == "TRENDING_DOWN" and enable_shorts:
+            if indicators.is_short_entry_signal(
+                current_price,
+                rsi_min=self.config.get("rsi_overbought_min", 60),
+                rsi_max=self.config.get("rsi_overbought_max", 80),
+                min_band_width=self.config.get("min_band_width_percent", 2.0),
+            ):
+                return await self._execute_entry(current_price, indicators, available_capital, regime, symbol, side="short")
+            return False
+
+        # Long entry path
+        if regime == "TRENDING_DOWN" and self.config.get("skip_trending_down_entries", True) and not enable_shorts:
+            # already handled above; skip
+            pass
+
         if indicators.is_entry_signal(
             current_price,
             rsi_min=self.config.get("rsi_oversold_min", 25),
@@ -189,13 +213,16 @@ class Trader:
                         print(f"[SKIP] Correlation risk: {symbol} correlated with {correlated}")
                         return False
             
-            return await self._execute_entry(current_price, indicators, available_capital, regime, symbol)
+            return await self._execute_entry(current_price, indicators, available_capital, regime, symbol, side="long")
 
         return False
 
-    async def _execute_entry(self, price: float, indicators, available_capital: float, regime: str = "", symbol: str = "") -> bool:
+    async def _execute_entry(self, price: float, indicators, available_capital: float, regime: str = "", symbol: str = "", side: str = "long") -> bool:
         """Execute entry order with Sprint 5-6 enhancements"""
-        base_size = self.config.get("primary_allocation", 3.0)
+        if side == "short":
+            base_size = self.config.get("short_allocation", 3.0)
+        else:
+            base_size = self.config.get("primary_allocation", 3.0)
         
         # US-3.2: Dynamic position sizing based on confidence
         if self.config.get("use_dynamic_sizing", True):
@@ -259,6 +286,7 @@ class Trader:
             entry_regime=regime,
             entry_confidence=confidence,
             symbol=symbol,
+            side=side,
         )
 
         print(f"[OK] Position opened: ${size_usd:.2f} @ ${price:.4f}")
@@ -273,6 +301,12 @@ class Trader:
         entry = pos.entry_price
         pnl_pct = (current_price - entry) / entry * 100
         current_time = time.time()
+
+        # Short position handling
+        if getattr(pos, "side", "long") == "short":
+            await self._manage_short_position(current_price, indicators, pos, entry, current_time)
+            return
+
 
         # US-2.5: Check time-based exit (max hold time)
         use_time_exit = self.config.get("use_time_exit", True)
@@ -419,6 +453,60 @@ class Trader:
                 print(f"\n[TP2] TP2 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp2_price:.4f}, +{tp2_pct:.2f}%]")
                 await self._close_position(current_price, CloseReason.TP2)
 
+    async def _manage_short_position(self, current_price, indicators, pos, entry, current_time):
+        """Manage a short position (bear market)"""
+        pnl_pct = (entry - current_price) / entry * 100
+
+        # Time exit
+        use_time_exit = self.config.get("use_time_exit", True)
+        max_hold_minutes = self.config.get("max_hold_time_minutes", 120)
+        if use_time_exit:
+            hold_time_minutes = (current_time - pos.entry_time) / 60
+            if hold_time_minutes >= max_hold_minutes:
+                print(f"\n[TIME] TIME EXIT (short) at ${current_price:.4f}")
+                await self._close_position(current_price, CloseReason.MANUAL)
+                return
+
+        # Track lowest price
+        if current_price < getattr(pos, "lowest_price", entry) or getattr(pos, "lowest_price", 0) == 0:
+            pos.lowest_price = current_price if getattr(pos, "lowest_price", 0) == 0 or current_price < pos.lowest_price else pos.lowest_price
+
+        # Stop loss (above entry)
+        stop_pct = self.config.get("short_stop_percent", 3.0)
+        stop_price = entry * (1 + stop_pct / 100)
+        if current_price >= stop_price:
+            print(f"\n[STOP] SHORT STOP LOSS at ${current_price:.4f} ({pnl_pct:+.2f}%)")
+            await self._close_position(current_price, CloseReason.STOP_LOSS)
+            return
+
+        # Take profit (below entry)
+        tp_pct = self.config.get("short_tp_percent", 2.5)
+        tp_price = entry * (1 - tp_pct / 100)
+        if current_price <= tp_price:
+            print(f"\n[TP] SHORT TP HIT at ${current_price:.4f} ({pnl_pct:+.2f}%)")
+            await self._close_position(current_price, CloseReason.TP1)
+            return
+
+        # Trailing stop for short: trail below lowest? For short, trail stop downward as price falls
+        use_trailing = self.config.get("use_trailing_stop", True)
+        trailing_pct = self.config.get("trailing_stop_percent", 1.0)
+        if use_trailing:
+            lowest = getattr(pos, "lowest_price", entry)
+            trailing_stop = lowest * (1 + trailing_pct / 100)
+            if trailing_stop < stop_price:
+                # tighten stop downward
+                pos.highest_price = lowest  # reuse field as lowest for short
+                # store trailing stop in breakeven field (reuse)
+                pos.breakeven_stop_price = trailing_stop
+
+        # Use stored trailing stop if set
+        if getattr(pos, "breakeven_stop_price", 0) > 0:
+            ts = pos.breakeven_stop_price
+            if current_price >= ts:
+                print(f"\n[TRAIL] SHORT TRAILING STOP at ${current_price:.4f}")
+                await self._close_position(current_price, CloseReason.STOP_LOSS)
+                return
+
     async def _partial_close(self, price: float, portion: float, reason: CloseReason):
         """Close portion of position (TP1)"""
         pos = self.active_position
@@ -443,9 +531,15 @@ class Trader:
         size = pos.size_usd
 
         # Calculate remaining PnL
-        remaining_pnl = (price - entry) / entry * size
+        if getattr(pos, "side", "long") == "short":
+            remaining_pnl = (entry - price) / entry * size
+        else:
+            remaining_pnl = (price - entry) / entry * size
         total_pnl = pos.pnl_usd + remaining_pnl
-        total_pct = (price - entry) / entry * 100
+        if getattr(pos, "side", "long") == "short":
+            total_pct = (entry - price) / entry * 100
+        else:
+            total_pct = (price - entry) / entry * 100
 
         print(f"\n[CLOSE] Position Closed ({reason.value})")
         print(f"   Entry: ${entry:.4f} -> Exit: ${price:.4f}")

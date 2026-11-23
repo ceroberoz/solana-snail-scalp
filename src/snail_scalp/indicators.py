@@ -115,6 +115,44 @@ class TechnicalIndicators:
 
         return at_bb and rsi_ok and volatility_ok and not_falling and volume_ok and mtf_ok
 
+    def is_short_entry_signal(
+        self,
+        current_price: float,
+        rsi_min: int = 60,
+        rsi_max: int = 80,
+        min_band_width: float = 2.0,
+    ) -> bool:
+        """Check short entry conditions (mirror of long, upper band / overbought RSI)"""
+        bb = self.calculate_bb()
+        rsi = self.calculate_rsi()
+
+        if bb is None:
+            return False
+
+        # Price at or above upper band (with 0.5% tolerance)
+        at_bb = current_price >= bb.upper * 0.995
+
+        # RSI in overbought range
+        rsi_ok = rsi_min <= rsi <= rsi_max
+
+        # Band width > minimum
+        volatility_ok = bb.width_percent > min_band_width
+
+        # Price below recent high (avoid shorting into spikes)
+        recent_high = max(list(self.prices)[-5:]) if len(self.prices) >= 5 else current_price
+        not_rising = current_price < recent_high * 1.01
+
+        # Volume confirmation
+        volume_ok = self._check_volume_confirmation()
+
+        # Multi-timeframe: 15m RSI > 50 (not oversold) for shorts
+        mtf_ok = True
+        if self.enable_multi_timeframe and len(self.price_history_15m) >= 15:
+            rsi_15m = self.calculate_rsi_15m()
+            mtf_ok = rsi_15m > 50.0
+
+        return at_bb and rsi_ok and volatility_ok and not_rising and volume_ok and mtf_ok
+
     def get_exit_levels(self, entry_price: float) -> ExitLevels:
         """Calculate take-profit and stop-loss levels"""
         bb = self.calculate_bb()
