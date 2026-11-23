@@ -20,22 +20,31 @@ Complete reference for all command-line options.
 
 ### `--screen` - Token Screening
 
-Find and rank the best trading opportunities.
+Find and rank real-time Solana memecoins dynamically using the DexScreener API with built-in rug/liquidity safety filtering.
 
 ```bash
+# Live screening (default)
 uv run python -m snail_scalp --screen
-uv run python -m snail_scalp --screen --hype 70 --risk moderate
+
+# Custom liquidity and hype gates
+uv run python -m snail_scalp --screen --min-liquidity 30000 --hype 70
+
+# Offline mode using cached snapshot
+uv run python -m snail_scalp --screen --offline
 ```
 
 **Options:**
 - `--hype` (float): Minimum hype score (default: 60)
-- `--risk` (str): Max risk level - minimal/low/moderate/high/extreme
+- `--risk` (str): Max risk level - minimal/low/moderate/high/extreme (default: extreme for memecoins)
+- `--min-liquidity` (float): Minimum pool liquidity in USD (default: $20,000)
+- `--offline` (flag): Use local/cached data instead of live DEX query
 
 **Output:**
-- Top 10 tokens by hype score
+- Real-time Solana memecoin market metrics (price, 24h/1h momentum, liquidity, volume)
+- Top 3–5 potential candidates for scalping with USDT on Solana (with real contract addresses and Jupiter swap routes)
 - Risk category breakdown
 - 2-hour trading watchlist
-- Exported watchlist JSON
+- Exported watchlist to `data/screening_watchlist.json`
 
 ---
 
@@ -105,18 +114,14 @@ Sharpe Ratio: 1.68
 
 ### `--multi` - Multi-Token Trading
 
-Trade multiple tokens simultaneously.
+Trade multiple tokens simultaneously in simulation mode.
 
 ```bash
 # Simulation
 uv run python -m snail_scalp --multi
-
-# Live trading (use with caution!)
-uv run python -m snail_scalp --multi --live
 ```
 
-**Options:**
-- `--live`: Enable live trading (default: simulation)
+> **Note:** Multi-token live execution is not supported. Real live trading currently executes on the single-token SOL/USDC pair only (`uv run python -m snail_scalp --capital 20`). Passing `--multi --live` will exit with an informative error.
 
 **Output:**
 ```

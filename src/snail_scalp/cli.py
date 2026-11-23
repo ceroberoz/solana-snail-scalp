@@ -65,8 +65,7 @@ Commands:
     %(prog)s --real-data --days 14 --capital 50
 
   Multi-Token Mode:
-    %(prog)s --multi                       # Multi-token trading (simulation)
-    %(prog)s --multi --live                # Multi-token trading (live)
+    %(prog)s --multi                       # Multi-token trading (simulation only)
         """,
     )
 
@@ -111,9 +110,22 @@ Commands:
     parser.add_argument(
         "--risk",
         type=str,
-        default="high",
+        default="extreme",
         choices=["minimal", "low", "moderate", "high", "extreme"],
-        help="Maximum risk level for screening (default: high)",
+        help="Maximum risk level for screening (default: extreme)",
+    )
+
+    parser.add_argument(
+        "--min-liquidity",
+        type=float,
+        default=20000.0,
+        help="Minimum liquidity in USD for screening (default: $20,000)",
+    )
+
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Use cached/local token data instead of querying live DEX",
     )
 
     # Backtest mode
@@ -225,9 +237,15 @@ def run_screening(args):
     from snail_scalp.multi_token_feed import MultiTokenFeed
     from snail_scalp.token_screener import RiskLevel
 
+    use_live = not getattr(args, "offline", False)
+    min_liq = getattr(args, "min_liquidity", 20000.0)
+
     print("\n" + "="*70)
-    print("TOKEN SCREENING MODE")
+    print("TOKEN SCREENING MODE - SOLANA MEMECOINS")
     print("="*70)
+    print(f"Discovery Mode: {'LIVE DEX (DexScreener API)' if use_live else 'OFFLINE MOCK DATA'}")
+    print(f"Base Currency:  USDT (Solana SPL)")
+    print(f"Min Liquidity:  ${min_liq:,.0f} USD (Rug/Liquidity Gate)")
 
     # Map risk string to enum
     risk_map = {
@@ -244,10 +262,26 @@ def run_screening(args):
     print("="*70)
 
     # Load and screen
-    feed = MultiTokenFeed()
+    feed = MultiTokenFeed(use_live=use_live, min_liquidity=min_liq)
 
     # Print full dashboard
     feed.print_trading_dashboard()
+
+    # Show Top 3-5 USDT Scalping candidates
+    top_candidates = feed.get_best_scalping_candidates(5, require_liquidity_usd=min_liq)
+    print("\n" + "="*70)
+    print("🎯 TOP 3-5 POTENTIAL CANDIDATES FOR TRADING WITH USDT ON SOLANA")
+    print("="*70)
+    for i, token in enumerate(top_candidates[:5], 1):
+        m = token.metrics
+        h = token.hype
+        print(f"{i}. {m.symbol} ({m.name})")
+        print(f"   Mint Address: {m.address}")
+        print(f"   Price:        ${m.price_usd:.6f} | 24h: {m.change_24h:+.1f}% | 1h: {m.change_1h:+.1f}%")
+        print(f"   Liquidity:    ${m.liquidity_usd:,.0f} | 24h Vol: ${m.volume_24h:,.0f}")
+        print(f"   Hype Score:   {h.total_hype_score:.1f}/100 | Risk: {h.risk_level.name} | Phase: {token.phase}")
+        print(f"   Quote Route:  USDT (Es9vMFrza...) -> {m.symbol} ({m.address[:8]}...) via Jupiter")
+        print("-" * 70)
 
     # Export watchlist
     watchlist_file = feed.export_watchlist("data/screening_watchlist.json")
@@ -260,7 +294,7 @@ def run_screening(args):
     )
 
     print(f"\n" + "="*70)
-    print(f"FILTERED RESULTS (Hype >= {args.hype}, Risk <= {max_risk.name})")
+    print(f"FILTERED CANDIDATES (Hype >= {args.hype}, Risk <= {max_risk.name})")
     print("="*70)
     print(f"Found {len(filtered)} tokens matching criteria\n")
 
@@ -268,7 +302,7 @@ def run_screening(args):
         m = token.metrics
         h = token.hype
         print(f"{i}. {m.symbol} - Hype: {h.total_hype_score:.1f}, Risk: {h.risk_level.name}")
-        print(f"   Price: ${m.price_usd:.6f} | 24h: {m.change_24h:+.1f}% | Liquidity: ${m.liquidity_usd/1e6:.1f}M")
+        print(f"   Price: ${m.price_usd:.6f} | 24h: {m.change_24h:+.1f}% | Liquidity: ${m.liquidity_usd:,.0f}")
 
     return 0
 
@@ -298,28 +332,25 @@ def run_multi_token(args):
     from snail_scalp.screening_bot import ScreeningTradingBot
     from snail_scalp.token_screener import RiskLevel
 
+    if getattr(args, "live", False):
+        print("\n[NOT SUPPORTED] Multi-token live trading is not implemented.")
+        print("Multi-token mode ranks tokens and simulates them; it does not place real swaps.")
+        print("Real live execution currently supports the single-token SOL/USDC path only.")
+        print("\nRun multi-token simulation without --live, or use:")
+        print("  uv run python -m snail_scalp --capital 20 --profile balanced --window-start 0 --window-end 24")
+        return 1
+
     print("\n" + "="*70)
     print("MULTI-TOKEN TRADING MODE")
     print("="*70)
-
-    simulate = not args.live
-    mode_str = "SIMULATION" if simulate else "LIVE TRADING"
-    print(f"Mode: {mode_str}")
+    print("Mode: SIMULATION")
     print(f"Capital: ${args.capital:.2f}")
     print("="*70)
-
-    if not simulate:
-        print("\nWARNING: LIVE TRADING MODE")
-        print("This will use real funds!")
-        response = input("\nContinue? (yes/no): ").lower().strip()
-        if response != "yes":
-            print("Aborted.")
-            return 0
 
     bot = ScreeningTradingBot(
         initial_capital=args.capital,
         max_positions=3,
-        simulate=simulate,
+        simulate=True,
         min_hype_score=60.0,
         max_risk_level=RiskLevel.HIGH,
         trading_hours=(args.window_start, args.window_end),

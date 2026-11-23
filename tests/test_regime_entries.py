@@ -79,7 +79,15 @@ def _config(**overrides):
 
 
 def _run_check(trader, indicators):
-    return asyncio.get_event_loop().run_until_complete(
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(
         trader.check_entry(100.0, indicators, available_capital=20.0, symbol="TEST")
     )
 

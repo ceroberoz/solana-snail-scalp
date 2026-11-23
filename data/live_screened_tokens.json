@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-11-23T12:54:33.793334",
+  "source": "DexScreener Live API",
+  "tokens": [
+    {
+      "symbol": "SOL",
+      "name": "Solana",
+      "contract_address": "AyiQP43hqPXRfJNH1kcRVS7jq1AjbCqXK2E4jxmWVP5u",
+      "metrics": {
+        "symbol": "SOL",
+        "name": "Solana",
+        "address": "AyiQP43hqPXRfJNH1kcRVS7jq1AjbCqXK2E4jxmWVP5u",
+        "price_usd": 104.35,
+        "market_cap": 2191389784.0,
+        "volume_24h": 303637.2,
+        "liquidity_usd": 2191052629.89,
+        "change_1h": 0.0,
+        "change_24h": 0.0,
+        "change_7d": 0.0,
+        "change_30d": 0.0,
+        "holders": 0,
+        "fdv": 2191389784.0
+      }
+    },
+    {
+      "symbol": "SOL",
+      "name": "Solana",
+      "contract_address": "5vhw96LZoKA4K8kbBkTJXBYvJSN1RWJzJgJbYEorBChv",
+      "metrics": {
+        "symbol": "SOL",
+        "name": "Solana",
+        "address": "5vhw96LZoKA4K8kbBkTJXBYvJSN1RWJzJgJbYEorBChv",
+        "price_usd": 76.064,
+        "market_cap": 1597357235.0,
+        "volume_24h": 111444.26,
+        "liquidity_usd": 1597167462.68,
+        "change_1h": 0.0,
+        "change_24h": 0.0,
+        "change_7d": 0.0,
+        "change_30d": 0.0,
+        "holders": 0,
+        "fdv": 1597357235.0
+      }
+    }
+  ]
+}

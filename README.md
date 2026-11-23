@@ -17,11 +17,11 @@ A **regime-aware scalping bot for Solana memecoins**. It screens tokens, trades 
 
 | Capability | What you get |
 |---|---|
-| Token screening | Ranks Solana memecoins by hype, volume and risk |
+| Token screening | Live DexScreener discovery ranking Solana memecoins by hype, volume, and $\ge \$20\text{k}$ liquidity gate |
 | Entries | Bollinger Bands + RSI, regime-aware |
 | Exits | ATR stops, breakeven, trailing, partial scale-outs, time exit |
 | Risk | Dynamic sizing, correlation check, daily loss + consecutive-loss limits |
-| Modes | screen · simulate · backtest · multi-token · live |
+| Modes | screen (live DEX) · simulate · backtest · multi-token (sim) · live (SOL/USDT) |
 
 ## Quick start
 
@@ -30,7 +30,7 @@ git clone https://github.com/ceroberoz/solana-snail-scalp.git
 cd solana-snail-scalp
 uv sync
 
-uv run python -m snail_scalp --screen                  # find candidates
+uv run python -m snail_scalp --screen                  # scan live Solana memecoins & surface top 3-5 USDT picks
 uv run python -m snail_scalp --backtest --days 30      # validate the strategy
 uv run python -m snail_scalp --simulate --fast         # paper trade
 ```

@@ -314,8 +314,8 @@ class Trader:
             # Jupiter live swap (requires wallet; see docs/INTEGRATION.md)
             try:
                 from snail_scalp.jupiter import swap, load_keypair
-                from snail_scalp.config import TOKEN_IN, TOKEN_OUT
-                amount = int(size_usd * 1_000_000)  # USDC (6 decimals)
+                from snail_scalp.config import TOKEN_IN, TOKEN_OUT, BASE_TOKEN_DECIMALS
+                amount = int(size_usd * (10 ** BASE_TOKEN_DECIMALS))  # Base quote token (e.g. USDT, 6 decimals)
                 kp = load_keypair()
                 taker = str(kp.pubkey()) if kp is not None else None
                 slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)
@@ -600,19 +600,19 @@ class Trader:
             return True
         try:
             from snail_scalp.jupiter import swap, load_keypair
-            from snail_scalp.config import TOKEN_IN, TOKEN_OUT
+            from snail_scalp.config import TOKEN_IN, TOKEN_OUT, BASE_TOKEN_DECIMALS
 
             kp = load_keypair()
             taker = str(kp.pubkey()) if kp is not None else None
 
             if side == "long":
-                # Selling SOL back to USDC: convert USD notional to SOL at current price.
+                # Selling SOL back to base quote token (USDT): convert USD notional to SOL at current price.
                 # 0.5% buffer avoids "insufficient funds" if price moved or fees were taken.
                 sol_amount = (size_usd / price) * 0.995 if price > 0 else 0.0
                 amount = int(sol_amount * 1_000_000_000)
                 in_mint, out_mint = TOKEN_OUT, TOKEN_IN
             else:
-                amount = int(size_usd * 1_000_000)
+                amount = int(size_usd * (10 ** BASE_TOKEN_DECIMALS))
                 in_mint, out_mint = TOKEN_IN, TOKEN_OUT
 
             slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)

@@ -148,6 +148,55 @@ class DexScreenerFetcher:
                 print(f"[ERROR] DexScreener: {e}")
                 return []
 
+    async def fetch_token_profiles(self) -> List[Dict]:
+        """Fetch latest active token profiles on Solana"""
+        url = "https://api.dexscreener.com/token-profiles/latest/v1"
+        async with aiohttp.ClientSession() as session:
+            try:
+                headers = {"User-Agent": "Mozilla/5.0"}
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    if response.status == 200:
+                        profiles = await response.json()
+                        if isinstance(profiles, list):
+                            return [p for p in profiles if p.get("chainId") == "solana"]
+            except Exception as e:
+                print(f"[ERROR] DexScreener token profiles: {e}")
+        return []
+
+    async def search_solana_pairs(self, query: str = "solana") -> List[Dict]:
+        """Search Solana pairs on DexScreener"""
+        url = f"{self.base_url}/dex/search?q={query}"
+        async with aiohttp.ClientSession() as session:
+            try:
+                headers = {"User-Agent": "Mozilla/5.0"}
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        pairs = data.get("pairs", [])
+                        return [p for p in pairs if p.get("chainId") == "solana"]
+            except Exception as e:
+                print(f"[ERROR] DexScreener search: {e}")
+        return []
+
+    async def get_tokens_batch(self, token_addresses: List[str]) -> List[Dict]:
+        """Fetch pairs for a batch of token addresses (max 30 per call)"""
+        if not token_addresses:
+            return []
+        all_pairs = []
+        headers = {"User-Agent": "Mozilla/5.0"}
+        async with aiohttp.ClientSession() as session:
+            for i in range(0, len(token_addresses), 30):
+                chunk = token_addresses[i:i+30]
+                url = f"{self.base_url}/dex/tokens/{','.join(chunk)}"
+                try:
+                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            all_pairs.extend(data.get("pairs", []) or [])
+                except Exception as e:
+                    print(f"[ERROR] DexScreener batch tokens: {e}")
+        return all_pairs
+
 
 class RealDataSimulation:
     """Run simulation with real historical data"""

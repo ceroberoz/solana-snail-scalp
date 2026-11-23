@@ -112,9 +112,9 @@ class TokenScreener:
     """Screen and rank Solana tokens by hype"""
     
     # Minimum thresholds for consideration
-    MIN_LIQUIDITY_USD = 100_000      # $100k min liquidity
-    MIN_VOLUME_24H = 50_000          # $50k min volume
-    MIN_MARKET_CAP = 500_000         # $500k min market cap
+    MIN_LIQUIDITY_USD = 20_000       # $20k min liquidity (filters dead/rugged pools)
+    MIN_VOLUME_24H = 20_000          # $20k min volume
+    MIN_MARKET_CAP = 30_000          # $30k min market cap / FDV
     
     # Scoring weights
     WEIGHT_MOMENTUM = 0.35
@@ -122,10 +122,154 @@ class TokenScreener:
     WEIGHT_SOCIAL = 0.20
     WEIGHT_RISK = 0.15
     
-    def __init__(self, data_file: Optional[str] = None):
+    def __init__(
+        self,
+        data_file: Optional[str] = None,
+        min_liquidity_usd: Optional[float] = None,
+        min_volume_24h: Optional[float] = None,
+        min_market_cap: Optional[float] = None,
+    ):
         self.tokens: List[TokenMetrics] = []
         self.hype_scores: List[HypeScore] = []
         self.data_file = Path(data_file) if data_file else None
+        self.min_liquidity_usd = min_liquidity_usd if min_liquidity_usd is not None else self.MIN_LIQUIDITY_USD
+        self.min_volume_24h = min_volume_24h if min_volume_24h is not None else self.MIN_VOLUME_24H
+        self.min_market_cap = min_market_cap if min_market_cap is not None else self.MIN_MARKET_CAP
+
+    async def fetch_live_tokens(
+        self,
+        min_liquidity: Optional[float] = None,
+        min_volume: Optional[float] = None,
+        max_tokens: int = 40,
+    ) -> List[TokenMetrics]:
+        """Fetch real-time Solana memecoins from DexScreener and apply safety/liquidity filters."""
+        from snail_scalp.real_data_fetcher import DexScreenerFetcher
+
+        min_liq = min_liquidity if min_liquidity is not None else self.min_liquidity_usd
+        min_vol = min_volume if min_volume is not None else self.min_volume_24h
+
+        fetcher = DexScreenerFetcher()
+        tokens_map: Dict[str, Dict] = {}
+
+        # 1. Fetch boosted / trending token profiles
+        try:
+            profiles = await fetcher.fetch_token_profiles()
+            for p in profiles:
+                addr = p.get("tokenAddress")
+                if addr:
+                    tokens_map[addr] = p
+        except Exception as e:
+            print(f"[WARN] DexScreener profiles lookup: {e}")
+
+        # 2. Search for active Solana pairs
+        search_pairs = []
+        try:
+            search_pairs = await fetcher.search_solana_pairs("solana")
+            for sp in search_pairs:
+                base = sp.get("baseToken", {})
+                addr = base.get("address")
+                if addr and addr not in tokens_map:
+                    tokens_map[addr] = {"tokenAddress": addr}
+        except Exception as e:
+            print(f"[WARN] DexScreener search lookup: {e}")
+
+        # 3. Batch lookup pair data for candidate tokens
+        addrs = list(tokens_map.keys())[:max_tokens]
+        raw_pairs: List[Dict] = []
+        if addrs:
+            try:
+                raw_pairs = await fetcher.get_tokens_batch(addrs)
+            except Exception as e:
+                print(f"[WARN] DexScreener batch lookup: {e}")
+
+        if not raw_pairs and search_pairs:
+            raw_pairs = search_pairs
+
+        # 4. Filter and select best pool per token
+        best_pairs_by_mint: Dict[str, Dict] = {}
+        for pair in raw_pairs:
+            if pair.get("chainId") != "solana":
+                continue
+            base = pair.get("baseToken", {})
+            addr = base.get("address")
+            if not addr:
+                continue
+
+            liq = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+            vol = float(pair.get("volume", {}).get("h24", 0) or 0)
+            price = float(pair.get("priceUsd", 0) or 0)
+
+            # Safety gate: liquidity and volume filters
+            if liq < min_liq or vol < min_vol or price <= 0:
+                continue
+
+            # Pick highest liquidity pair for this token
+            current_best_liq = float(best_pairs_by_mint.get(addr, {}).get("liquidity", {}).get("usd", 0) or 0)
+            if addr not in best_pairs_by_mint or liq > current_best_liq:
+                best_pairs_by_mint[addr] = pair
+
+        metrics_list: List[TokenMetrics] = []
+        for addr, pair in best_pairs_by_mint.items():
+            base = pair.get("baseToken", {})
+            metrics_list.append(TokenMetrics(
+                symbol=base.get("symbol", "UNKNOWN")[:12],
+                name=base.get("name", "Unknown"),
+                address=addr,
+                price_usd=float(pair.get("priceUsd", 0) or 0),
+                market_cap=float(pair.get("marketCap") or pair.get("fdv") or 0),
+                volume_24h=float(pair.get("volume", {}).get("h24", 0) or 0),
+                liquidity_usd=float(pair.get("liquidity", {}).get("usd", 0) or 0),
+                change_1h=float(pair.get("priceChange", {}).get("h1", 0) or 0),
+                change_24h=float(pair.get("priceChange", {}).get("h24", 0) or 0),
+                change_7d=float(pair.get("priceChange", {}).get("h24", 0) or 0),
+                change_30d=0.0,
+                holders=0,
+                fdv=float(pair.get("fdv", 0) or 0)
+            ))
+
+        if metrics_list:
+            self.tokens = metrics_list
+            try:
+                Path("data").mkdir(parents=True, exist_ok=True)
+                cache_file = Path("data/live_screened_tokens.json")
+                with open(cache_file, "w") as f:
+                    json.dump({
+                        "generated_at": datetime.now().isoformat(),
+                        "source": "DexScreener Live API",
+                        "tokens": [
+                            {
+                                "symbol": m.symbol,
+                                "name": m.name,
+                                "contract_address": m.address,
+                                "metrics": asdict(m)
+                            }
+                            for m in metrics_list
+                        ]
+                    }, f, indent=2)
+            except Exception:
+                pass
+        elif self.tokens:
+            pass
+        elif Path("data/top10_solana_coins.json").exists():
+            self.load_from_json("data/top10_solana_coins.json")
+
+        return self.tokens
+
+    def fetch_live_tokens_sync(
+        self,
+        min_liquidity: Optional[float] = None,
+        min_volume: Optional[float] = None,
+        max_tokens: int = 40,
+    ) -> List[TokenMetrics]:
+        """Synchronous wrapper for fetch_live_tokens."""
+        try:
+            return asyncio.run(self.fetch_live_tokens(min_liquidity, min_volume, max_tokens))
+        except RuntimeError:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                return executor.submit(
+                    asyncio.run, self.fetch_live_tokens(min_liquidity, min_volume, max_tokens)
+                ).result()
         
     def load_from_json(self, filepath: str) -> List[TokenMetrics]:
         """Load token data from JSON file"""
@@ -159,11 +303,11 @@ class TokenScreener:
         filtered = []
         for t in tokens:
             # Skip if doesn't meet minimums
-            if t.liquidity_usd < self.MIN_LIQUIDITY_USD:
+            if t.liquidity_usd < self.min_liquidity_usd:
                 continue
-            if t.volume_24h < self.MIN_VOLUME_24H:
+            if t.volume_24h < self.min_volume_24h:
                 continue
-            if t.market_cap < self.MIN_MARKET_CAP:
+            if t.market_cap < self.min_market_cap:
                 continue
             filtered.append(t)
         
@@ -445,6 +589,19 @@ class TokenScreener:
                 print(f"   • {s.token.symbol}: +{s.token.change_24h:.1f}% (24h), "
                       f"Vol/MCap: {s.token.volume_to_mcap_ratio():.2f}x")
         
+        top_scalp = self.get_top_picks(5)
+        if top_scalp:
+            print("\n" + "="*80)
+            print("🎯 TOP 3-5 CANDIDATES FOR USDT SCALPING ON SOLANA (USDT Base):")
+            print("="*80)
+            for i, score in enumerate(top_scalp[:5], 1):
+                t = score.token
+                print(f"{i}. {t.symbol:<10} | Price: ${t.price_usd:<12.6f} | 24h: {t.change_24h:>+7.1f}% | 1h: {t.change_1h:>+6.1f}%")
+                print(f"   Address:   {t.address}")
+                print(f"   Liquidity: ${t.liquidity_usd:>10,.0f} | 24h Vol: ${t.volume_24h:>10,.0f} | Hype: {score.total_hype_score:.1f}/100")
+                print(f"   Route:     USDT (Es9vMFrza...) -> {t.symbol} ({t.address[:8]}...) via Jupiter")
+                print("-"*80)
+
         print("\n" + "="*80)
 
 

@@ -162,11 +162,11 @@ The bot ships a Jupiter v2 client in `src/snail_scalp/jupiter.py`:
 ```python
 from snail_scalp.jupiter import swap, load_keypair
 
-# Buy: USDC -> SOL
+# Buy: USDT -> SOL (or USDT -> MEME)
 res = await swap(
-    input_mint="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",  # USDC
-    output_mint="So11111111111111111111111111111111111111112",  # SOL
-    amount=3_000_000,  # 3 USDC (6 decimals)
+    input_mint="Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",  # USDT (SPL)
+    output_mint="So11111111111111111111111111111111111111112",  # SOL (or memecoin mint)
+    amount=3_000_000,  # 3 USDT (6 decimals)
     taker=wallet_pubkey,  # optional; enables tx building
     slippage_bps=80,      # 0.8%
 )
@@ -187,11 +187,12 @@ Live mode is activated by disabling simulation (`simulate=False`); the trader ca
 
 ### Known live-mode limits
 
-- Live execution currently swaps **USDC ↔ SOL** using `TOKEN_IN` / `TOKEN_OUT`. It does not automatically trade screened memecoins; only change the mints/pair if you know what you are doing.
+- Live execution currently swaps **USDT ↔ SOL** (or USDC via `TOKEN_IN`) using `TOKEN_IN` / `TOKEN_OUT`. It routes through Jupiter v2 quotes.
+- **Multi-token live trading** is scheduled for Sprint 9 (to execute on the 3–5 screened memecoins concurrently). `--multi --live` currently halts with an explanatory message.
 - **Shorts are simulation-only.** Spot live mode refuses short entries because there is no borrow/margin integration.
-- Long closes size the SOL sell from `size_usd / current_price` with a 0.5% buffer. Partial scale-outs sell their proportional share on-chain.
+- Long closes size the sell from `size_usd / current_price` with a 0.5% buffer. Partial scale-outs sell their proportional share on-chain.
 - If a close swap fails, the bot still marks the position closed in bookkeeping but prints `[LIVE][CRITICAL]`; verify the wallet manually.
-- `--capital` is the bot's accounting base, not a wallet balance check. Fund the wallet with at least the capital plus SOL for fees.
+- `--capital` is the bot's accounting base, not a wallet balance check. Fund the wallet with at least the capital in USDT plus SOL for network gas fees.
 - Live mode is beta. Run it under supervision and start with $20–$50.
 
 ### Webhook Notifications

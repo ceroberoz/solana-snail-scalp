@@ -2,6 +2,27 @@
 
 All notable changes to the Solana Snail Scalp Bot project.
 
+## [2.3.0] - 2026-11-23
+
+### Added
+- **Live Solana Memecoin Discovery (US-6.1)**:
+  - Upgraded screener to query DexScreener's public API (`/token-profiles/latest/v1` and `/dex/search?q=solana`) with batch token lookup (`/dex/tokens/{addrs}`).
+  - Automatically surfaces trending, boosted, and high-volume Solana memecoins in real time with real mint addresses, live prices, and 24h volume.
+- **Rug & Liquidity Safety Gate (US-6.2)**:
+  - Implemented configurable `--min-liquidity` threshold (default `$20,000` USD) that eliminates dead pools, drained liquidity rugs, and illiquid traps.
+  - Added resilient offline fallback to local cache (`data/live_screened_tokens.json` or `top10_solana_coins.json`) via `--offline`.
+- **Solana USDT Base Currency (US-6.3)**:
+  - Switched default `TOKEN_IN` to Solana USDT (`Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`) with 6-decimal scaling (`BASE_TOKEN_DECIMALS = 6`).
+  - Added constants for `USDT_MINT`, `USDC_MINT`, and `SOL_MINT`.
+  - Verified Jupiter v2 quote routing for `USDT -> MEME` and `MEME -> USDT`.
+- **Top 3–5 USDT Scalping Candidate Highlights**:
+  - `uv run python -m snail_scalp --screen` now actively displays the top 3–5 candidate memecoins formatted with mint address, price, liquidity, hype score, and Jupiter USDT swap route.
+- **Unit Tests**:
+  - Added `tests/test_live_screener_usdt.py` covering USDT config, liquidity filtering, offline fallback, and candidate ranking.
+
+### Fixed
+- **Test event loop lifecycle**: made `_run_check` in `tests/test_regime_entries.py` robust against closed event loops across test files.
+
 ## [2.2.0] - 2026-11-23
 
 ### Added

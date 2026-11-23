@@ -23,7 +23,7 @@ Never change strategy code, config, profiles, capital, or loss limits.
 NON-NEGOTIABLES
 - Validate before live: run a 30-day backtest, a 7-day real-data simulation, and a simulation smoke test. Report results and wait for my explicit "go live".
 - Never print, log, or transmit SOLANA_PRIVATE_KEY or keypair file contents.
-- Never run `--multi --live` (it requires interactive confirmation).
+- Never run `--multi --live` (multi-token live trading is not implemented; live trading is SOL/USDC only).
 - Never run `--reset`, `--aggressive`, or enable shorts.
 - Never restart after a stop condition without my approval.
 - Never trade manually or delete `data/`.

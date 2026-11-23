@@ -177,10 +177,18 @@ class APIConfig:
     rpc: str = "https://solana-mainnet.rpc.extrnode.com"  # Free public - REPLACE WITH YOURS
 
 
+# Solana Well-Known Mint Addresses
+USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"  # Tether USD (SPL, 6 decimals)
+USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # USD Coin (SPL, 6 decimals)
+SOL_MINT = "So11111111111111111111111111111111111111112"   # Wrapped SOL (9 decimals)
+
 # SOL/USDC Raydium Pair (Update address if needed)
 PAIR_ADDRESS = os.getenv("PAIR_ADDRESS", "8sLbNZoY3HWP8krpPjWBP1u3ZcD7nRRd6m8vPWH6Y5Pq")
-TOKEN_IN = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # USDC
-TOKEN_OUT = "So11111111111111111111111111111111111111112"  # SOL
+
+# Base quote currency and target (Default: USDT on Solana)
+TOKEN_IN = os.getenv("TOKEN_IN", USDT_MINT)
+TOKEN_OUT = os.getenv("TOKEN_OUT", SOL_MINT)
+BASE_TOKEN_DECIMALS = int(os.getenv("BASE_TOKEN_DECIMALS", "6"))
 
 # Simulation settings
 SIMULATION_CONFIG = {

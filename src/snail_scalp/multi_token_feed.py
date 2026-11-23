@@ -60,11 +60,15 @@ class MultiTokenFeed:
         self,
         data_file: str = "data/top10_solana_coins.json",
         auto_screen: bool = True,
-        min_risk_level: Optional[RiskLevel] = None
+        min_risk_level: Optional[RiskLevel] = None,
+        use_live: bool = False,
+        min_liquidity: float = 20_000.0,
     ):
         self.data_file = Path(data_file)
+        self.use_live = use_live or (data_file == "live")
+        self.min_liquidity = min_liquidity
         self.tokens: Dict[str, TokenData] = {}
-        self.screener = TokenScreener()
+        self.screener = TokenScreener(min_liquidity_usd=min_liquidity)
         self.sentiment_analyzer = SentimentAnalyzer()
         self.hype_detector = HypeCycleDetector()
         
@@ -75,32 +79,47 @@ class MultiTokenFeed:
         self._load_tokens()
     
     def _load_tokens(self):
-        """Load tokens from JSON and process"""
-        if not self.data_file.exists():
-            raise FileNotFoundError(f"Token data file not found: {self.data_file}")
+        """Load tokens from live DEX or JSON and process"""
+        metrics_list: List[TokenMetrics] = []
         
-        with open(self.data_file, 'r') as f:
-            data = json.load(f)
-        
-        # Convert to TokenMetrics
-        metrics_list = []
-        for item in data.get('tokens', []):
-            m = item['metrics']
-            metrics_list.append(TokenMetrics(
-                symbol=item['symbol'],
-                name=item['name'],
-                address=item.get('contract_address', ''),
-                price_usd=m['price_usd'],
-                market_cap=m['market_cap'],
-                volume_24h=m['volume_24h'],
-                liquidity_usd=m['liquidity_usd'],
-                change_1h=m.get('change_1h', 0),
-                change_24h=m.get('change_24h', 0),
-                change_7d=m.get('change_7d', 0),
-                change_30d=m.get('change_30d', 0),
-                holders=m.get('holders', 0),
-                fdv=m.get('fdv', 0)
-            ))
+        if self.use_live:
+            try:
+                metrics_list = self.screener.fetch_live_tokens_sync(min_liquidity=self.min_liquidity)
+            except Exception as e:
+                print(f"[WARN] Live token fetch failed, checking fallback: {e}")
+
+        if not metrics_list:
+            if not self.data_file.exists():
+                # Try live_screened_tokens.json or top10_solana_coins.json
+                fallback = Path("data/live_screened_tokens.json")
+                if fallback.exists():
+                    self.data_file = fallback
+                elif Path("data/top10_solana_coins.json").exists():
+                    self.data_file = Path("data/top10_solana_coins.json")
+                else:
+                    raise FileNotFoundError(f"Token data file not found: {self.data_file}")
+            
+            with open(self.data_file, 'r') as f:
+                data = json.load(f)
+            
+            # Convert to TokenMetrics
+            for item in data.get('tokens', []):
+                m = item.get('metrics', item)
+                metrics_list.append(TokenMetrics(
+                    symbol=item['symbol'],
+                    name=item['name'],
+                    address=item.get('contract_address', item.get('address', '')),
+                    price_usd=m['price_usd'],
+                    market_cap=m['market_cap'],
+                    volume_24h=m['volume_24h'],
+                    liquidity_usd=m['liquidity_usd'],
+                    change_1h=m.get('change_1h', 0),
+                    change_24h=m.get('change_24h', 0),
+                    change_7d=m.get('change_7d', 0),
+                    change_30d=m.get('change_30d', 0),
+                    holders=m.get('holders', 0),
+                    fdv=m.get('fdv', 0)
+                ))
         
         # Run screening if enabled
         if self.auto_screen:
@@ -161,7 +180,7 @@ class MultiTokenFeed:
     def get_best_scalping_candidates(
         self,
         n: int = 5,
-        require_liquidity_usd: float = 1_000_000
+        require_liquidity_usd: float = 20_000.0
     ) -> List[TokenData]:
         """Get tokens best suited for scalping strategy"""
         candidates = []
@@ -181,7 +200,7 @@ class MultiTokenFeed:
             
             # Prefer high volume for easy exits
             vmc = token.metrics.volume_to_mcap_ratio()
-            if vmc < 0.1:
+            if vmc < 0.05:
                 continue
             
             # Calculate scalping score
@@ -207,7 +226,18 @@ class MultiTokenFeed:
         
         # Sort by score
         candidates.sort(key=lambda x: x[1], reverse=True)
-        return [t[0] for t in candidates[:n]]
+        results = [t[0] for t in candidates[:n]]
+
+        # If strict filter returned fewer than n, backfill from remaining ranked tokens
+        if len(results) < n:
+            ranked = self.get_ranked_tokens()
+            for r in ranked:
+                if r not in results and r.metrics.liquidity_usd >= self.min_liquidity:
+                    results.append(r)
+                if len(results) >= n:
+                    break
+
+        return results
     
     def get_watchlist_for_trading_window(
         self,

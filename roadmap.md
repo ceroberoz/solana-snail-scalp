@@ -1,119 +1,94 @@
 # Solana Snail Scalp Bot - Development Roadmap
 
-**Version:** 2.2  
+**Version:** 2.3  
 **Last Updated:** 2026-11-23  
 **Methodology:** Scrum/Agile  
 **Sprint Duration:** 2 weeks  
 
 ---
 
-## 🆕 Recent Improvements (v2.2)
+## 🎯 Target Architecture & User Want
 
-- Config key alignment; CLI modes (`--simulate`, `--backtest`, `--real-data`, `--multi`) now runnable.
-- Risk/strategy profiles: `default`, `balanced`, `aggressive` (`--profile`).
-- `--fast` simulation flag; `--dashboard` monitoring view.
-- Trending-down entry filter for bull/bear handling.
-- Trade attribution logging (`data/trade_attribution.csv`) + `scripts/analyze_trades.py`.
-- ATR uses true high/low when OHLC available; deterministic backtests (seed).
-- Short-side entries for bear markets (TRENDING_DOWN) with stop/TP/trailing/time exit.
-- Confidence score recalibrated (regime-weighted).
-- Regime-aware entry modes: momentum in bull trends, mean reversion in ranges, short/skip in bear.
-- Indicator caching + Wilder-smoothed ATR/ADX (faster and more accurate).
-- ATR-based stops for short positions.
+> **Core Objective:**  
+> 1. **Dynamic Memecoin Discovery:** Continuously scan Solana memecoins live to select the top 3–5 high-momentum, liquid tokens.  
+> 2. **Base Currency:** Execute trades on Solana using **USDT** (`Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`).  
+> 3. **Loss Prevention:** Execute live multi-position trades on Jupiter while strictly avoiding losses using the built-in risk engine (Wilder ATR stops, trailing stops, breakeven stops, regime gating, and daily circuit breakers).
+
+---
+
+## 🆕 Recent Improvements (v2.2 - v2.3)
+
+- **Strategy & Indicators (Sprints 1–6 Complete):**
+  - Config key alignment; CLI modes (`--simulate`, `--backtest`, `--real-data`, `--multi`) runnable.
+  - Risk/strategy profiles: `default`, `balanced`, `aggressive` (`--profile`).
+  - Wilder-smoothed ATR/ADX calculation; ATR stops with true high/low when OHLC available.
+  - Regime-aware entry modes: momentum in bull trends, mean reversion in ranges, short/skip in bear.
+  - Trailing stops, breakeven stop after TP1, time-based exit, and partial profit scale-outs.
+  - Portfolio correlation tracker and daily loss circuit breakers.
+- **Live Trading Baseline:**
+  - Integrated Jupiter Swap API v2 for single-pair SOL/USDC live swaps with `solders` keypair signing.
+  - Guarded `--multi --live` in CLI to prevent unintended execution until multi-token live engine is ready.
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Product Vision](#product-vision)
-2. [Current State Assessment](#current-state-assessment)
-3. [Strategic Objectives](#strategic-objectives)
-4. [Epics & User Stories](#epics--user-stories)
-5. [Sprint Planning](#sprint-planning)
-6. [Product Backlog](#product-backlog)
-7. [Definition of Done](#definition-of-done)
-8. [Success Metrics](#success-metrics)
-9. [Risk Management](#risk-management)
-10. [Team Structure](#team-structure)
-11. [Timeline](#timeline)
-
----
-
-## 🎯 Product Vision
-
-### Vision Statement
-> Build an intelligent, adaptive scalping bot for Solana that maximizes small capital growth through systematic mean-reversion trading with institutional-grade risk management.
-
-### Target Users
-- Retail traders with $20-$1,000 capital
-- Risk-averse scalpers seeking consistent returns
-- Algorithmic trading enthusiasts
-
-### Success Criteria
-- Win rate > 45%
-- Monthly return 20-35%
-- Max drawdown < 10%
-- Fully automated execution
+1. [Product Vision & Target Architecture](#-target-architecture--user-want)
+2. [Current State Assessment & Gap Analysis](#-current-state-assessment)
+3. [Strategic Objectives](#-strategic-objectives)
+4. [Epics & User Stories](#-epics--user-stories)
+5. [Sprint Planning](#️-sprint-planning)
+6. [Product Backlog](#-product-backlog)
+7. [Definition of Done](#-definition-of-done)
+8. [Success Metrics](#-success-metrics)
+9. [Risk Management](#️-risk-management)
+10. [Team Structure](#-team-structure)
+11. [Timeline](#-timeline)
 
 ---
 
 ## 🔍 Current State Assessment
 
-### What Works (MVP Complete)
+### What Works (Production-Ready Strategy & Single-Pair Foundation)
 | Feature | Status | Notes |
 |---------|--------|-------|
-| BB + RSI Strategy | ✅ | Basic implementation working |
-| Risk Management | ✅ | Circuit breakers, position limits |
-| Multi-token Support | ✅ | 3 concurrent positions |
-| Backtesting | ✅ | Historical simulation |
-| Real Data Integration | ✅ | CoinGecko/Birdeye APIs |
-| CLI Interface | ✅ | All major commands working |
-| Portfolio Tracking | ✅ | PnL, win rate, history |
+| BB + RSI Strategy (Wider Range + Near Touch) | ✅ Done | Tested & operational (US-1.1, US-1.3) |
+| Volume Confirmation (1.3x filter) | ✅ Done | Tested & operational (US-1.2) |
+| ATR-Based Dynamic Stops (Wilder Smoothing) | ✅ Done | Tested & operational (US-2.1) |
+| Breakeven Stop After TP1 | ✅ Done | Tested & operational (US-2.2) |
+| Trailing Stop Engine | ✅ Done | Tested & operational (US-2.3) |
+| Dynamic Profit Targets & Partial Scaling | ✅ Done | Tested & operational (US-2.4, US-2.6) |
+| Time-Based Exit (Max 120m hold) | ✅ Done | Tested & operational (US-2.5) |
+| Market Regime Detection (ADX + Trends) | ✅ Done | Tested & operational (US-1.5) |
+| Dynamic Sizing & Correlation Management | ✅ Done | Tested & operational (US-3.2, US-3.3) |
+| Single-Pair Live Execution (Jupiter v2) | ✅ Done | Tested on SOL/USDC live swaps |
 
-### Technical Debt
-| Issue | Priority | Effort |
-|-------|----------|--------|
-| Hard-coded parameters | High | 2 SP |
-| No ATR calculation | High | 3 SP |
-| Missing volume filter | High | 2 SP |
-| No trailing stops | Medium | 5 SP |
-| Single timeframe only | Medium | 8 SP |
-| No market regime detection | Medium | 13 SP |
-
-### Performance Gaps
-- RSI 25-35 too narrow (missing 40% of entries)
-- Fixed stops don't adapt to volatility
-- No volume confirmation
-- DCA doubles risk without limit
-- Missing market regime awareness
+### Architectural Gaps Against Target Design
+| Gap | Severity | Current Codebase State | Target Requirement |
+|-----|----------|------------------------|--------------------|
+| **1. Dynamic Memecoin Scanner** | 🔴 High | Uses static mock snapshot (`top10_solana_coins.json`) | Live DexScreener/Birdeye API scanning for top 3–5 tokens |
+| **2. Base Quote Currency** | 🟡 Medium | Hardcoded to USDC (`EPjFWdd5...`) | Solana USDT (`Es9vMFrza...`) with dynamic routing |
+| **3. Multi-Token Live Swaps** | 🔴 High | Multi-token bot is simulated (`_simulate_price`) | Live on-chain swaps across 3–5 concurrent positions |
+| **4. Memecoin Safety Gates** | 🔴 High | None | Honeypot, revoked freeze/mint authority, min liquidity checks |
 
 ---
 
 ## 🎯 Strategic Objectives
 
-### Q1 2026: Foundation Enhancement
-**Goal:** Optimize entry/exit logic, reduce false signals
+### Phase 1: Strategy & Single-Pair Baseline (Complete)
+- Build robust indicators, regime detection, dynamic stops, and single-pair Jupiter live swap.
 
-**Key Results:**
-- Increase trade frequency by 30%
-- Improve win rate from 41% to 50%
-- Reduce max drawdown by 20%
+### Phase 2: Memecoin Discovery & Safety Pipeline (Sprint 8)
+- Dynamic DexScreener scanning for 3–5 trending memecoins.
+- Honeypot, freeze authority revocation, and minimum liquidity checks.
+- Solana USDT base configuration and dynamic multi-hop Jupiter routing.
 
-### Q2 2026: Intelligence Layer
-**Goal:** Add adaptive parameters and market regime detection
+### Phase 3: Multi-Token Live Execution & Risk Wiring (Sprint 9)
+- Wire `PortfolioManager` to `JupiterClient` for real multi-token entries & exits.
+- Connect existing ATR stops, trailing stops, and daily circuit breakers to live on-chain sell orders.
 
-**Key Results:**
-- Implement dynamic position sizing
-- Add multi-timeframe confirmation
-- Achieve 25% monthly returns consistently
-
-### Q3 2026: Production Readiness
-**Goal:** Live trading with full automation
-
-**Key Results:**
-- Jupiter DEX integration
-- Real-time execution with <1s latency
-- 99.9% uptime
+### Phase 4: Production Hardening (Sprint 10)
+- Priority fees / compute budget optimization, MEV protection, and monitoring.
 
 ---
 
@@ -435,17 +410,17 @@ Story Points: 13
 #### User Stories
 
 **US-5.1: Jupiter DEX Integration**
-**Status:** 📝 Todo
+**Status:** 🚧 In Progress (Single-Pair SOL/USDC Complete; Multi-token in Epic 6)
 ```
 As a trader
 I want the bot to execute trades on Jupiter
 So that I can trade with real money
 
 Acceptance Criteria:
-- Jupiter API integration
-- Quote fetching
-- Transaction signing
+- Jupiter API integration (v2 Swap API quote + execute)
+- Transaction signing (solders / local keypair)
 - Slippage protection (<0.8%)
+- Single-pair SOL/USDC live verification
 
 Story Points: 13
 ```
@@ -458,10 +433,10 @@ I want secure wallet integration
 So that funds are protected
 
 Acceptance Criteria:
-- Support Phantom/Solflare
-- Private key encryption
-- Multi-wallet support
-- Withdrawal limits
+- Support Phantom/Solflare keypair export
+- Private key environment variable security (SOLANA_PRIVATE_KEY)
+- Unsigned transaction fallback (`data/pending_swap.json`)
+- Pre-flight wallet balance verification
 
 Story Points: 8
 ```
@@ -476,7 +451,7 @@ So that I get filled at intended prices
 Acceptance Criteria:
 - WebSocket price feeds
 - Async transaction processing
-- Priority fee optimization
+- Priority fee / compute budget optimization
 - MEV protection
 
 Story Points: 13
@@ -490,7 +465,7 @@ I want a web dashboard to monitor trades
 So that I can see performance in real-time
 
 Acceptance Criteria:
-- Web UI (React/Vue)
+- Web UI (React/Vue or lightweight HTML/SSE)
 - Real-time PnL tracking
 - Trade history with filters
 - Mobile responsive
@@ -500,72 +475,168 @@ Story Points: 21
 
 ---
 
+### Epic 6: Multi-Token Live Memecoin Scalper (USDT Base)
+**Priority:** 🔴 Critical  
+**Business Value:** Maximum (Core Target Architecture)  
+**Story Points:** 45
+
+#### User Stories
+
+**US-6.1: Live Dynamic Memecoin Screener (DexScreener/Birdeye API)**
+**Status:** ✅ Done
+```
+As a trader
+I want the bot to dynamically scan trending Solana memecoins live
+So that I identify 3-5 high-potential candidate tokens without relying on static mock data
+
+Acceptance Criteria:
+- Live discovery via DexScreener API (`/latest/dex/search`, trending, or token profiles)
+- Filters candidates by 24h/1h volume surges, volume-to-MCap ratio (>0.5x), and price velocity
+- Selects and rotates top 3-5 candidates for scalping
+- Rate-limiting backoff and error handling for external DEX APIs
+
+Story Points: 8
+```
+
+**US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity Protection)**
+**Status:** ✅ Done
+```
+As a trader
+I want every candidate token to pass safety & liquidity checks before trading
+So that capital is protected from honeypots, rugs, and illiquid traps
+
+Acceptance Criteria:
+- Verify freeze authority is revoked (RPC token supply / account info)
+- Verify mint authority is revoked or renounced
+- Minimum pool liquidity gate ($20,000+ USD) to prevent excessive slippage
+- Maximum price impact verification via Jupiter quote (<1.5%) before entry execution
+
+Story Points: 8
+```
+
+**US-6.3: Solana USDT Base Quote & Dynamic Routing**
+**Status:** ✅ Done
+```
+As a trader
+I want the bot to use USDT on Solana as the base quote currency
+So that trading capital and profits are held and tracked in USDT
+
+Acceptance Criteria:
+- Set `TOKEN_IN` to Solana USDT (`Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`)
+- Support Jupiter multi-hop routing (`USDT -> SOL -> MEME` for buys, `MEME -> SOL -> USDT` for sells)
+- Dynamic SPL token decimal scaling (USDT 6 decimals, target memecoins 6 or 9 decimals)
+- Accurate balance checks using Solana RPC for USDT and held memecoins
+
+Story Points: 8
+```
+
+**US-6.4: Multi-Token Live Portfolio Execution Engine**
+**Status:** 📝 Todo
+```
+As a trader
+I want the bot to manage and trade 3-5 live memecoin positions concurrently
+So that capital is diversified across high-momentum candidates
+
+Acceptance Criteria:
+- Wire `PortfolioManager` to `JupiterClient` (replacing `_simulate_price()` with live DEX price feeds)
+- Manage 3-5 distinct position slots with dedicated balance and fill tracking
+- Execute live on-chain entries and staged scale-outs (TP1/TP2) via Jupiter
+- Handle transaction confirmation, timeout retries, and failed swap aborts cleanly
+
+Story Points: 13
+```
+
+**US-6.5: Multi-Token Loss-Prevention Engine Integration**
+**Status:** 📝 Todo
+```
+As a trader
+I want all 3-5 live memecoin positions protected by the existing risk & exit logic
+So that downside is capped and winners are locked in
+
+Acceptance Criteria:
+- Wilder ATR-based dynamic stops trigger live on-chain sell swaps immediately
+- Breakeven stop moves stop price to entry + fees after TP1 is hit
+- Trailing stop locks in profits as the memecoin makes new highs
+- Time-based exit closes stagnant positions after hold limit (e.g., 2 hours)
+- Portfolio-wide daily loss limit and consecutive loss limits stop all trading
+
+Story Points: 8
+```
+
+---
+
 ## 🗓️ Sprint Planning
 
-### Sprint 1-2: Quick Wins (Weeks 1-4)
-**Theme:** Immediate Improvements
-
-| User Story | Points | Owner |
-|------------|--------|-------|
-| US-1.1: Widen RSI Range | 3 | TBD |
-| US-1.2: Volume Confirmation | 5 | TBD |
-| US-1.3: BB Near-Touch | 3 | TBD |
-| US-2.1: ATR-Based Stops | 8 | TBD |
-| US-3.1: Improved DCA | 5 | TBD |
-| **Total** | **24** | |
-
-**Sprint Goal:** Increase trade frequency by 25% while maintaining win rate
-
-**Definition of Done:**
-- All stories merged to main
-- Backtests show improvement
-- Documentation updated
+### Sprint 1-2: Quick Wins (Completed ✅)
+**Theme:** Immediate Strategy Improvements
+- US-1.1: Widen RSI Range (3 SP) - ✅ Done
+- US-1.2: Volume Confirmation (5 SP) - ✅ Done
+- US-1.3: BB Near-Touch (3 SP) - ✅ Done
+- US-2.1: ATR-Based Stops (8 SP) - ✅ Done
+- US-3.1: Improved DCA (5 SP) - ✅ Done
 
 ---
 
-### Sprint 3-4: Exit Optimization (Weeks 5-8)
-**Theme:** Better Exits = Better Profits
-
-| User Story | Points | Owner |
-|------------|--------|-------|
-| US-2.2: Breakeven Stop | 5 | TBD |
-| US-2.3: Trailing Stop | 8 | TBD |
-| US-2.4: Dynamic Targets | 5 | TBD |
-| US-2.5: Time-Based Exit | 3 | TBD |
-| US-1.4: Multi-Timeframe | 8 | TBD |
-| **Total** | **29** | |
-
-**Sprint Goal:** Reduce drawdown by 20%, improve avg win size
+### Sprint 3-4: Exit Optimization (Completed ✅)
+**Theme:** Better Exits & Profit Retention
+- US-2.2: Breakeven Stop (5 SP) - ✅ Done
+- US-2.3: Trailing Stop (8 SP) - ✅ Done
+- US-2.4: Dynamic Targets (5 SP) - ✅ Done
+- US-2.5: Time-Based Exit (3 SP) - ✅ Done
+- US-1.4: Multi-Timeframe Confirmation (8 SP) - ✅ Done
 
 ---
 
-### Sprint 5-6: Intelligence Layer (Weeks 9-12)
-**Theme:** Adaptive Trading
-
-| User Story | Points | Owner |
-|------------|--------|-------|
-| US-1.5: Market Regime | 13 | TBD |
-| US-3.2: Dynamic Sizing | 8 | TBD |
-| US-2.6: Partial Scaling | 5 | TBD |
-| US-3.3: Correlation Mgmt | 8 | TBD |
-| **Total** | **34** | |
-
-**Sprint Goal:** Achieve consistent 25%+ monthly returns
+### Sprint 5-6: Intelligence Layer (Completed ✅)
+**Theme:** Adaptive Trading & Regimes
+- US-1.5: Market Regime Detection (13 SP) - ✅ Done
+- US-3.2: Dynamic Position Sizing (8 SP) - ✅ Done
+- US-2.6: Partial Profit Scaling (5 SP) - ✅ Done
+- US-3.3: Correlation Management (8 SP) - ✅ Done
 
 ---
 
-### Sprint 7-10: Live Trading (Weeks 13-20)
-**Theme:** Production Deployment
+### Sprint 7: Live Foundation (Completed ✅)
+**Theme:** Single-Pair Jupiter Integration
+- US-5.1 (Phase 1): Jupiter v2 Swap Client (Quote & Execute) - ✅ Done
+- Single-pair SOL/USDC live execution engine with `solders` signing - ✅ Done
+- Guardrails against unverified `--multi --live` runs - ✅ Done
 
-| User Story | Points | Owner |
-|------------|--------|-------|
-| US-5.1: Jupiter Integration | 13 | TBD |
-| US-5.2: Wallet Management | 8 | TBD |
-| US-5.3: Real-Time Execution | 13 | TBD |
-| US-5.4: Monitoring Dashboard | 21 | TBD |
-| **Total** | **55** | |
+---
 
-**Sprint Goal:** Full live trading with dashboard
+### Sprint 8: Memecoin Discovery, Safety Gates & USDT Quote (Completed ✅)
+**Theme:** Real Memecoin Pipeline & Safety Filters
+| User Story | Points | Priority | Status |
+|------------|--------|----------|--------|
+| US-6.1: Live Dynamic Memecoin Screener (DexScreener API) | 8 | 🔴 Critical | ✅ Done |
+| US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity) | 8 | 🔴 Critical | ✅ Done |
+| US-6.3: Solana USDT Base Quote & Dynamic Routing | 8 | 🔴 Critical | ✅ Done |
+| **Total** | **24** | | |
+
+**Sprint Goal:** Automatically scan, safety-check, and rank 3–5 real Solana memecoins quote-routed to USDT.
+
+---
+
+### Sprint 9: Multi-Token Live Execution & Risk Wiring (Weeks 15-16) 🚀 Next
+**Theme:** Live Multi-Position Scalper
+| User Story | Points | Priority | Status |
+|------------|--------|----------|--------|
+| US-6.4: Multi-Token Live Portfolio Execution Engine | 13 | 🔴 Critical | 📝 Todo |
+| US-6.5: Multi-Token Loss-Prevention Engine Integration | 8 | 🔴 Critical | 📝 Todo |
+| **Total** | **21** | | |
+
+**Sprint Goal:** Live automated trading across 3–5 memecoin positions using USDT with active ATR stops, trailing exits, and circuit breakers.
+
+---
+
+### Sprint 10: Production Hardening & Dashboard (Weeks 17-18)
+**Theme:** Infrastructure & Observability
+| User Story | Points | Priority | Status |
+|------------|--------|----------|--------|
+| US-5.2: Wallet Management & Balance Guard | 8 | 🟠 High | 📝 Todo |
+| US-5.3: Priority Fees & MEV Protection | 13 | 🟡 Medium | 📝 Todo |
+| US-5.4: Monitoring Dashboard | 21 | 🔵 Nice to Have | 📝 Todo |
+| **Total** | **42** | | |
 
 ---
 
@@ -573,23 +644,42 @@ Story Points: 21
 
 ### Prioritized Backlog (Refined)
 
-| Rank | ID | Story | Epic | Points | Priority |
-|------|-----|-------|------|--------|----------|
-| 1 | US-1.1 | Widen RSI Range | Entry Optimization | 3 | 🔴 |
-| 2 | US-1.2 | Volume Confirmation | Entry Optimization | 5 | 🔴 |
-| 3 | US-2.1 | ATR-Based Stops | Exit Enhancement | 8 | 🔴 |
-| 4 | US-3.1 | Improved DCA | Risk Management | 5 | 🔴 |
-| 5 | US-2.2 | Breakeven Stop | Exit Enhancement | 5 | 🟠 |
-| 6 | US-2.3 | Trailing Stop | Exit Enhancement | 8 | 🟠 |
-| 7 | US-1.4 | Multi-Timeframe | Entry Optimization | 8 | 🟠 |
-| 8 | US-2.4 | Dynamic Targets | Exit Enhancement | 5 | 🟠 |
-| 9 | US-1.5 | Market Regime | Entry Optimization | 13 | 🟡 |
-| 10 | US-3.2 | Dynamic Sizing | Risk Management | 8 | 🟡 |
-| 11 | US-5.1 | Jupiter Integration | Live Trading | 13 | 🟡 |
-| 12 | US-5.2 | Wallet Management | Live Trading | 8 | 🟢 |
-| 13 | US-5.3 | Real-Time Execution | Live Trading | 13 | 🟢 |
-| 14 | US-4.1 | Order Book Imbalance | Data Intelligence | 13 | 🟢 |
-| 15 | US-5.4 | Monitoring Dashboard | Live Trading | 21 | 🔵 |
+| Rank | ID | Story | Epic | Points | Priority | Status |
+|------|-----|-------|------|--------|----------|--------|
+| 1 | US-6.4 | Multi-Token Live Portfolio Execution | Memecoin Scalper | 13 | 🔴 Critical | 📝 Todo |
+| 2 | US-6.5 | Multi-Token Loss-Prevention Integration | Memecoin Scalper | 8 | 🔴 Critical | 📝 Todo |
+| 3 | US-5.2 | Wallet Management & Balance Guard | Live Trading | 8 | 🟠 High | 📝 Todo |
+| 4 | US-5.3 | Priority Fees & MEV Protection | Live Trading | 13 | 🟡 Medium | 📝 Todo |
+| 5 | US-4.1 | Order Book Imbalance Filter | Data Intelligence | 13 | 🟢 Low | 📝 Todo |
+| 6 | US-5.4 | Monitoring Dashboard | Live Trading | 21 | 🔵 Nice to Have | 📝 Todo |
+| - | US-6.1 | Live Dynamic Memecoin Screener | Memecoin Scalper | 8 | - | ✅ Done |
+| - | US-6.2 | Memecoin Safety Gate (Honeypot/Freeze) | Memecoin Scalper | 8 | - | ✅ Done |
+| - | US-6.3 | Solana USDT Base Quote & Routing | Memecoin Scalper | 8 | - | ✅ Done |
+| 6 | US-5.2 | Wallet Management & Balance Guard | Live Trading | 8 | 🟠 High | 📝 Todo |
+| 7 | US-5.3 | Priority Fees & MEV Protection | Live Trading | 13 | 🟡 Medium | 📝 Todo |
+| 8 | US-4.1 | Order Book Imbalance Filter | Data Intelligence | 13 | 🟢 Low | 📝 Todo |
+| 9 | US-5.4 | Monitoring Dashboard | Live Trading | 21 | 🔵 Nice to Have | 📝 Todo |
+| - | US-1.1 | Widen RSI Range | Entry Optimization | 3 | - | ✅ Done |
+| - | US-1.2 | Volume Confirmation | Entry Optimization | 5 | - | ✅ Done |
+| - | US-1.3 | BB Near-Touch Entry | Entry Optimization | 3 | - | ✅ Done |
+| - | US-1.4 | Multi-Timeframe Confirmation | Entry Optimization | 8 | - | ✅ Done |
+| - | US-1.5 | Market Regime Detection | Entry Optimization | 13 | - | ✅ Done |
+| - | US-2.1 | ATR-Based Stops | Exit Enhancement | 8 | - | ✅ Done |
+| - | US-2.2 | Breakeven Stop After TP1 | Exit Enhancement | 5 | - | ✅ Done |
+| - | US-2.3 | Trailing Stop After TP1 | Exit Enhancement | 8 | - | ✅ Done |
+| - | US-2.4 | Dynamic Profit Targets | Exit Enhancement | 5 | - | ✅ Done |
+| - | US-2.5 | Time-Based Exit | Exit Enhancement | 3 | - | ✅ Done |
+| - | US-2.6 | Partial Profit Scaling | Exit Enhancement | 5 | - | ✅ Done |
+| - | US-3.1 | Improved DCA Logic | Risk Management | 5 | - | ✅ Done |
+| - | US-3.2 | Dynamic Position Sizing | Risk Management | 8 | - | ✅ Done |
+| - | US-3.3 | Correlation Risk Management | Risk Management | 8 | - | ✅ Done |
+
+**Legend:**
+- 🔴 Critical (Sprint 8–9 Core)
+- 🟠 High (Next)
+- 🟡 Medium (Later)
+- 🟢 Low (Future)
+- 🔵 Nice to Have
 
 **Legend:**
 - 🔴 Critical (Do First)
@@ -787,10 +877,11 @@ python scripts/sync_roadmap_to_github.py
 
 | Date | Decision | Rationale | Status |
 |------|----------|-----------|--------|
-| 2026-02-26 | RSI range 25→35 to 20→40 | Capture more valid entries | Proposed |
-| 2026-02-26 | Add volume filter 1.3x | Reduce false signals | Proposed |
-| 2026-02-26 | ATR-based stops vs fixed | Adapt to volatility | Proposed |
+| 2026-02-26 | RSI range 25→35 to 20→40 | Capture more valid entries | Approved |
+| 2026-02-26 | Add volume filter 1.3x | Reduce false signals | Approved |
+| 2026-02-26 | ATR-based stops vs fixed | Adapt to volatility | Approved |
 | 2026-02-26 | 2-week sprints | Balance velocity and planning | Approved |
+| 2026-11-23 | Multi-token Memecoin USDT Pivot | Shift live trading from single-pair SOL/USDC to dynamic 3–5 memecoin discovery with Solana USDT base and honeypot/freeze safety gates, wired into the existing risk engine. | Approved |
 
 ---
 
