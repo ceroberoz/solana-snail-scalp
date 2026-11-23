@@ -291,6 +291,43 @@ python scripts/analyze_trades.py
 
 The `--dashboard` command summarizes portfolio state, attribution by regime/confidence, and the last backtest.
 
+## Short Strategy (Bear Market)
+
+When `enable_short_entries=True`, the bot can short in `TRENDING_DOWN` regimes:
+
+### Short Entry Criteria
+
+| # | Condition | Value |
+|---|-----------|-------|
+| 1 | Price at Upper BB | `>= upper * 0.995` |
+| 2 | RSI Range | 60-80 (overbought) |
+| 3 | Volume Confirmation | `> 1.3x` avg |
+| 4 | BB Width | `> 2%` |
+| 5 | Price vs Recent High | `< 101%` (avoid shorting spikes) |
+| 6 | 15m RSI | `> 50` |
+
+### Short Exits
+
+- **Stop Loss**: above entry by `short_stop_percent` (default 3%).
+- **Take Profit**: below entry by `short_tp_percent` (default 2.5%).
+- **Trailing Stop**: trails below the lowest price.
+- **Time Exit**: same `max_hold_time_minutes`.
+
+### PnL
+
+Short PnL is inverted: `(entry - price) / entry * size`. Position side is tracked in `Trade.side` and in attribution.
+
+### Configuration
+
+```python
+enable_short_entries = True   # aggressive profile enables this
+rsi_overbought_min = 60
+rsi_overbought_max = 80
+short_allocation = 3.0
+short_stop_percent = 3.0
+short_tp_percent = 2.5
+```
+
 ## Configuration Reference
 
 ### Sprint 1-2 Features
@@ -351,6 +388,14 @@ use_regime_detection = True
 skip_choppy_markets = True
 skip_trending_down_entries = True
 regime_adx_threshold = 25.0
+
+# Short / Bear-Market Handling
+enable_short_entries = False
+rsi_overbought_min = 60
+rsi_overbought_max = 80
+short_allocation = 3.0
+short_stop_percent = 3.0
+short_tp_percent = 2.5
 
 # Confidence Gating
 use_confidence_gate = True

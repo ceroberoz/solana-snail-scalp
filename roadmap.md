@@ -15,6 +15,7 @@
 - Trending-down entry filter for bull/bear handling.
 - Trade attribution logging (`data/trade_attribution.csv`) + `scripts/analyze_trades.py`.
 - ATR uses true high/low when OHLC available; deterministic backtests (seed).
+- Short-side entries for bear markets (TRENDING_DOWN) with stop/TP/trailing/time exit.
 - Confidence score recalibrated (regime-weighted).
 
 ---

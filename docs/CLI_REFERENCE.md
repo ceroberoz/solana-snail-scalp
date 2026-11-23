@@ -11,6 +11,10 @@ Complete reference for all command-line options.
 | `--window-end` | | 11 | Trading window end (UTC hour) |
 | `--reset` | | | Reset all state files |
 | `--results` | | data/simulation_results.json | Results file path |
+| `--profile` | | default | Risk/strategy profile: default, balanced, aggressive |
+| `--aggressive` | | | Shorthand for `--profile aggressive` |
+| `--fast` | | | Skip per-candle delays in simulation |
+| `--dashboard` | | | Show monitoring dashboard |
 
 ## Commands
 
@@ -202,3 +206,24 @@ uv run python -m snail_scalp --backtest --days 90 --capital 100
 | `--backtest` | `data/backtest_report.json` |
 | `--multi` | `data/simulation_portfolio.json` |
 | `--simulate` | `data/simulation_results.json` |
+
+
+---
+
+### `--dashboard` - Monitoring Dashboard
+
+Summarize portfolio state, trade attribution, and last backtest.
+
+```bash
+uv run python -m snail_scalp --dashboard
+```
+
+### `--profile` - Risk/Strategy Profile
+
+```bash
+uv run python -m snail_scalp --backtest --days 7 --profile aggressive
+uv run python -m snail_scalp --simulate --profile balanced --fast
+```
+
+Profiles: `default` (conservative), `balanced`, `aggressive` (enables short entries).
+

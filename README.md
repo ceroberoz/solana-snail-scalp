@@ -119,11 +119,23 @@ Choose a profile with `--profile` (or `--aggressive` shorthand):
 |---------|---------|--------|------|-------|
 | `default` | RSI 20-40 | $3 base, 0.5-1.5x | $1.50 daily loss, 2 consecutive losses | Conservative baseline |
 | `balanced` | RSI 18-42 | $4 base, 0.6-1.75x | $2.00 daily loss, 4 consecutive losses | Middle ground |
-| `aggressive` | RSI 15-45 | $5 base, 0.75-2.0x | $3.00 daily loss, 5 consecutive losses | Higher throughput |
+| `aggressive` | RSI 15-45 | $5 base, 0.75-2.0x | $3.00 daily loss, 5 consecutive losses | Higher throughput; enables short entries |
 
 ```bash
 uv run python -m snail_scalp --backtest --days 30 --profile aggressive
 uv run python -m snail_scalp --simulate --speed 1000 --profile balanced --fast
+```
+
+## Bear-Market / Short Handling
+
+The bot is long-only by default. In `TRENDING_DOWN` regimes it normally skips entries. With `enable_short_entries=True` (aggressive profile) it can **short**:
+
+- Entry: price at upper BB, RSI 60-80, volume confirmation, 15m RSI > 50.
+- Exit: stop above entry, take-profit below entry, trailing stop, time exit.
+- PnL sign is inverted for shorts.
+
+```bash
+uv run python -m snail_scalp --simulate --profile aggressive --fast
 ```
 
 ## Monitoring
