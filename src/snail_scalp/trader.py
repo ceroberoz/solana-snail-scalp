@@ -154,30 +154,59 @@ class Trader:
         if not self.risk.is_trading_window():
             return False
 
-        # US-1.5: Check market regime (skip choppy / downtrend markets)
+        # US-1.5: Detect market regime
         if self.config.get("use_regime_detection", True):
             regime = indicators.detect_market_regime(
                 self.config.get("regime_adx_threshold", 25.0)
             )
-            if regime == "CHOPPY" and self.config.get("skip_choppy_markets", True):
-                print(f"[SKIP] Market regime is CHOPPY - skipping trade")
-                return False
-            if regime == "TRENDING_DOWN" and self.config.get("skip_trending_down_entries", True):
-                print(f"[SKIP] Market regime is TRENDING_DOWN - skipping long entry")
-                return False
         else:
             regime = "UNKNOWN"
 
-        # Short entry path (bear market)
+        if regime == "CHOPPY" and self.config.get("skip_choppy_markets", True):
+            print("[SKIP] Market regime is CHOPPY - skipping trade")
+            return False
+
         enable_shorts = self.config.get("enable_short_entries", False)
-        if regime == "TRENDING_DOWN" and enable_shorts:
+
+        # Regime-aware entry mode selection
+        if self.config.get("regime_aware_entries", True):
+            if regime == "TRENDING_UP":
+                entry_mode = self.config.get("bull_entry_mode", "momentum")
+            elif regime == "RANGING":
+                entry_mode = self.config.get("range_entry_mode", "mean_reversion")
+            elif regime == "TRENDING_DOWN":
+                if enable_shorts:
+                    entry_mode = "short"
+                elif self.config.get("skip_trending_down_entries", True):
+                    entry_mode = "skip"
+                else:
+                    entry_mode = "mean_reversion"
+            else:
+                entry_mode = "mean_reversion"
+        else:
+            entry_mode = "mean_reversion"
+            if (
+                regime == "TRENDING_DOWN"
+                and self.config.get("skip_trending_down_entries", True)
+                and not enable_shorts
+            ):
+                entry_mode = "skip"
+
+        if entry_mode == "skip":
+            print("[SKIP] Market regime is TRENDING_DOWN - skipping long entry")
+            return False
+
+        # Bear market short path
+        if entry_mode == "short":
             if indicators.is_short_entry_signal(
                 current_price,
                 rsi_min=self.config.get("rsi_overbought_min", 60),
                 rsi_max=self.config.get("rsi_overbought_max", 80),
                 min_band_width=self.config.get("min_band_width_percent", 2.0),
             ):
-                return await self._execute_entry(current_price, indicators, available_capital, regime, symbol, side="short")
+                return await self._execute_entry(
+                    current_price, indicators, available_capital, regime, symbol, side="short"
+                )
             return False
 
         # Confidence gate (longs only)
@@ -187,20 +216,32 @@ class Trader:
             except Exception:
                 conf = 100.0
             if conf < self.config.get("min_confidence_score", 50.0):
-                print(f"[SKIP] Confidence {conf:.0f} < {self.config.get('min_confidence_score',50.0):.0f} - skipping trade")
+                print(
+                    f"[SKIP] Confidence {conf:.0f} < "
+                    f"{self.config.get('min_confidence_score', 50.0):.0f} - skipping trade"
+                )
                 return False
 
-        # Long entry path
-        if regime == "TRENDING_DOWN" and self.config.get("skip_trending_down_entries", True) and not enable_shorts:
-            # already handled above; skip
-            pass
+        # Long entry: momentum in bull trends, mean reversion otherwise
+        if entry_mode == "momentum":
+            signal = indicators.is_momentum_entry_signal(
+                current_price,
+                rsi_min=self.config.get("momentum_rsi_min", 45),
+                rsi_max=self.config.get("momentum_rsi_max", 70),
+                min_band_width=self.config.get("min_band_width_percent", 2.0),
+                volume_threshold=self.config.get("momentum_volume_threshold", 1.1),
+            )
+            mode_label = "MOMENTUM"
+        else:
+            signal = indicators.is_entry_signal(
+                current_price,
+                rsi_min=self.config.get("rsi_oversold_min", 25),
+                rsi_max=self.config.get("rsi_oversold_max", 35),
+                min_band_width=self.config.get("min_band_width_percent", 2.0),
+            )
+            mode_label = "MEAN-REVERSION"
 
-        if indicators.is_entry_signal(
-            current_price,
-            rsi_min=self.config.get("rsi_oversold_min", 25),
-            rsi_max=self.config.get("rsi_oversold_max", 35),
-            min_band_width=self.config.get("min_band_width_percent", 2.0),
-        ):
+        if signal:
             # US-3.3: Check correlation risk before entry
             if correlation_tracker and active_symbols and symbol:
                 use_corr = self.config.get("use_correlation_check", True)
@@ -212,8 +253,11 @@ class Trader:
                     if not allowed:
                         print(f"[SKIP] Correlation risk: {symbol} correlated with {correlated}")
                         return False
-            
-            return await self._execute_entry(current_price, indicators, available_capital, regime, symbol, side="long")
+
+            print(f"[SIGNAL] {mode_label} entry in {regime}")
+            return await self._execute_entry(
+                current_price, indicators, available_capital, regime, symbol, side="long"
+            )
 
         return False
 
@@ -279,8 +323,11 @@ class Trader:
             except Exception as e:
                 print(f"   [LIVE] Jupiter swap error: {e}")
 
-        # US-2.6: Initialize partial scaling tracking
+        # US-2.6: Initialize partial scaling tracking (regime-aware targets)
         scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
+        if self.config.get("regime_aware_entries", True) and regime:
+            regime_levels = self.config.get("regime_scale_levels") or {}
+            scale_config = regime_levels.get(regime, scale_config)
         scale_levels_hit = [False] * len(scale_config)
         
         confidence = 0.0
@@ -416,6 +463,9 @@ class Trader:
         use_partial = self.config.get("use_partial_scaling", True)
         if use_partial:
             scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
+            if self.config.get("regime_aware_entries", True) and getattr(pos, "entry_regime", ""):
+                regime_levels = self.config.get("regime_scale_levels") or {}
+                scale_config = regime_levels.get(pos.entry_regime, scale_config)
             
             for i, (portion, profit_pct) in enumerate(scale_config):
                 if i < len(pos.scale_levels_hit) and not pos.scale_levels_hit[i]:

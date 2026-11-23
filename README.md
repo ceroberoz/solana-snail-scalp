@@ -126,6 +126,19 @@ uv run python -m snail_scalp --backtest --days 30 --profile aggressive
 uv run python -m snail_scalp --simulate --speed 1000 --profile balanced --fast
 ```
 
+## Regime-Aware Entries
+
+`regime_aware_entries=True` (default) makes the bot choose its entry engine from the detected market regime instead of applying one mean-reversion rule everywhere:
+
+| Regime | Entry mode | Signal |
+|--------|------------|--------|
+| `TRENDING_UP` | Momentum | Price above middle BB, RSI 45-70, rising momentum, volume >1.1x, 15m uptrend, no blow-off top |
+| `RANGING` | Mean reversion | Lower BB, RSI 20-40, volume >1.3x, 15m RSI <50 |
+| `TRENDING_DOWN` | Short (if enabled) / skip | Upper BB, RSI 60-80, volume confirmation |
+| `CHOPPY` | Skip | No entries |
+
+Bull momentum trades also use wider scale-out targets (2% / 3.5% / 6%) so winners can run; ranging trades keep 1.5% / 2.5% / 4%. Tune with `bull_entry_mode`, `range_entry_mode`, `momentum_rsi_min/max`, and `regime_scale_levels`. Set `regime_aware_entries=False` to restore single-mode mean reversion.
+
 ## Bear-Market / Short Handling
 
 The bot is long-only by default. In `TRENDING_DOWN` regimes it normally skips entries. With `enable_short_entries=True` (aggressive profile) it can **short**:
@@ -174,6 +187,7 @@ The dashboard reads `data/trade_attribution.csv` (regime + confidence per trade)
 | **Profit Scaling** | Partial scale out at 25%/50%/75% with final trailing stop | ✅ Complete |
 | **Risk Management** | 50% DCA size, Dynamic position sizing (50-150%), Correlation check (max 2) | ✅ Complete |
 | **Intelligence** | Market regime detection, Confidence scoring, Skip choppy markets | ✅ Complete |
+| **Regime-Aware Entries** | Momentum in bull trends, mean reversion in ranges, short/skip in bear | ✅ Complete |
 
 See [Strategy Guide](docs/STRATEGY.md) for comprehensive feature documentation.
 
@@ -203,6 +217,7 @@ use_correlation_check = True  # Max 2 correlated positions
 
 # Intelligence
 use_regime_detection = True   # Detect trending/ranging/choppy
+regime_aware_entries = True   # Momentum in bull, mean reversion in range
 skip_choppy_markets = True    # Skip low-quality markets
 ```
 

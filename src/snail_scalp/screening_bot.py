@@ -47,10 +47,11 @@ class TokenTrader:
         if not self.last_price:
             return False
         
-        # Regime gate: skip long entries in TRENDING_DOWN if configured
-        if strategy_config.skip_trending_down_entries:
+        # Regime-aware gate + entry mode
+        regime = "UNKNOWN"
+        if strategy_config.use_regime_detection:
             regime = self.indicators.detect_market_regime(strategy_config.regime_adx_threshold)
-            if regime == "TRENDING_DOWN":
+            if regime == "TRENDING_DOWN" and strategy_config.skip_trending_down_entries:
                 return False
             if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
                 return False
@@ -60,8 +61,17 @@ class TokenTrader:
             conf = self.indicators.calculate_confidence_score()
             if conf < strategy_config.min_confidence_score:
                 return False
-        
-        # Use existing strategy
+
+        # Bull trends use momentum; everything else uses mean reversion
+        if strategy_config.regime_aware_entries and regime == "TRENDING_UP":
+            return self.indicators.is_momentum_entry_signal(
+                self.last_price,
+                rsi_min=strategy_config.momentum_rsi_min,
+                rsi_max=strategy_config.momentum_rsi_max,
+                min_band_width=strategy_config.min_band_width_percent,
+                volume_threshold=strategy_config.momentum_volume_threshold,
+            )
+
         return self.indicators.is_entry_signal(
             self.last_price,
             rsi_min=strategy_config.rsi_oversold_min,

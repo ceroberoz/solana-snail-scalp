@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Solana Snail Scalp Bot uses an **adaptive Bollinger Bands + RSI** mean reversion strategy designed for small capital ($20-$100). The strategy has evolved through multiple sprints to include advanced risk management, intelligent position sizing, and dynamic exit strategies.
+The Solana Snail Scalp Bot uses an **adaptive, regime-aware Bollinger Bands + RSI** strategy designed for small capital ($20-$100). The same engine trades mean reversion in ranging markets, momentum in bull trends, and (optionally) shorts in bear trends, with advanced risk management, intelligent position sizing, and dynamic exits.
 
 ---
 
@@ -19,8 +19,8 @@ All conditions must be met for entry:
 | 3 | Volume Confirmation | `> 1.3x` avg | Avoid low-liquidity fakeouts |
 | 4 | BB Width | `> 2%` | Avoid flat markets |
 | 5 | Price vs Recent Low | `> 99%` | Avoid falling knives |
-| 6 | 15m RSI | `< 50` | Higher timeframe confirmation |
-| 7 | Market Regime | not CHOPPY / not TRENDING_DOWN (configurable) | Skip noisy or strongly bearish markets |
+| 6 | 15m RSI | `< 50` (mean reversion); `> 50` or uptrend (momentum) | Higher timeframe confirmation |
+| 7 | Market Regime | Regime-aware mode (see below) | Use the right entry logic per regime |
 | 8 | Confidence Gate | `>= min_confidence_score` (default 50) | Skip low-quality setups |
 
 ### RSI Range Evolution
@@ -59,6 +59,40 @@ Entry Allowed
 ```
 
 **Configurable:** Can be disabled via `enable_multi_timeframe = False`
+
+---
+
+## Regime-Aware Entry Modes
+
+`regime_aware_entries = True` (default) selects a different entry engine per detected regime instead of applying one mean-reversion rule everywhere.
+
+| Regime | Mode | Entry logic | Exit targets |
+|--------|------|-------------|--------------|
+| `TRENDING_UP` | `momentum` | Price above middle BB, RSI 45-70, rising 3-bar momentum, volume > 1.1x, 15m uptrend/RSI > 50, not >2% above upper BB | Wider scale-outs: 2.0% / 3.5% / 6.0% |
+| `RANGING` | `mean_reversion` | Classic setup: lower BB, RSI 20-40, volume > 1.3x, 15m RSI < 50 | 1.5% / 2.5% / 4.0% |
+| `TRENDING_DOWN` | `short` or `skip` | Short at upper BB (RSI 60-80) when `enable_short_entries=True`; otherwise skip longs | Short TP / trailing stop |
+| `CHOPPY` | `skip` | No entries (unless `skip_choppy_markets=False`) | - |
+
+Momentum mode buys strength (trend continuation) instead of waiting for a deep pullback, which avoids missing most of a bull move. Mean-reversion mode is unchanged and remains the safe default for sideways markets.
+
+```python
+regime_aware_entries = True
+bull_entry_mode = "momentum"          # or "pullback" for conservative longs
+range_entry_mode = "mean_reversion"   # or "momentum"
+momentum_rsi_min = 45
+momentum_rsi_max = 70
+momentum_volume_threshold = 1.1
+regime_target_multiplier = {
+    "TRENDING_UP": 1.25,   # let winners run
+    "RANGING": 1.0,
+}
+regime_scale_levels = {
+    "TRENDING_UP": ((0.25, 2.0), (0.25, 3.5), (0.25, 6.0)),
+    "RANGING": ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)),
+}
+```
+
+Set `regime_aware_entries = False` to restore the original single-mode (mean reversion) behavior.
 
 ---
 
@@ -233,12 +267,12 @@ Action: SKIP (would be 3rd correlated position)
 
 Uses ADX (Average Directional Index) to detect market conditions:
 
-| Regime | ADX | Characteristics | Position Size |
-|--------|-----|-----------------|---------------|
-| TRENDING_UP | >25 | +DI > -DI | 1.2x (increase) |
-| TRENDING_DOWN | >25 | -DI > +DI | 0.7x (decrease) |
-| RANGING | <25 | Sideways | 1.0x (normal) |
-| CHOPPY | <25 + Narrow BB | Noise | Skip trade |
+| Regime | ADX | Characteristics | Position Size | Entry Mode |
+|--------|-----|-----------------|---------------|------------|
+| TRENDING_UP | >25 | +DI > -DI | 1.2x (increase) | Momentum |
+| TRENDING_DOWN | >25 | -DI > +DI | 0.7x (decrease) | Short / skip |
+| RANGING | <25 | Sideways | 1.0x (normal) | Mean reversion |
+| CHOPPY | <25 + Narrow BB | Noise | Skip trade | Skip |
 
 ```python
 adx, plus_di, minus_di = calculate_adx()
@@ -389,6 +423,14 @@ skip_choppy_markets = True
 skip_trending_down_entries = True
 regime_adx_threshold = 25.0
 
+# Regime-Aware Entries
+regime_aware_entries = True
+bull_entry_mode = "momentum"          # or "pullback"
+range_entry_mode = "mean_reversion"   # or "momentum"
+momentum_rsi_min = 45
+momentum_rsi_max = 70
+momentum_volume_threshold = 1.1
+
 # Short / Bear-Market Handling
 enable_short_entries = False
 rsi_overbought_min = 60
@@ -415,6 +457,7 @@ min_confidence_score = 50.0
    Confidence: 75/100
 
 2. ENTRY CALCULATION
+   Mode: MOMENTUM (bull trend)
    Base Size: $3.00
    Confidence Multiplier: 0.5 + 0.75 = 1.25x
    Regime Multiplier: 1.2x (trending up)
@@ -509,7 +552,7 @@ Based on backtests with $20 capital and all features enabled:
 ✅ **Optimal Conditions:**
 - TRENDING_UP or RANGING regime
 - BB width 2-5%
-- Volume >1.3x average
+- Volume >1.3x average (mean reversion) / >1.1x (momentum)
 - 15m RSI confirming (not overbought)
 - Low correlation with existing positions
 
@@ -518,7 +561,7 @@ Based on backtests with $20 capital and all features enabled:
 - TRENDING_DOWN (reduce size or skip)
 - Volume <1.0x average
 - Confidence below `min_confidence_score`
-- 15m RSI >50 (overbought on higher TF)
+- 15m RSI >50 for mean reversion; 15m RSI <50 or downtrend for momentum
 - Correlated with 2+ active positions
 - Extreme volatility (>10% BB width)
 
@@ -529,6 +572,7 @@ Based on backtests with $20 capital and all features enabled:
 | Layer | Feature | Protection |
 |-------|---------|------------|
 | Entry | Regime Detection | Skip choppy markets |
+| Entry | Regime-Aware Modes | Momentum in bull, mean reversion in range, short/skip in bear |
 | Entry | Correlation Check | Max 2 correlated |
 | Entry | Confidence Sizing | 50-150% adaptive |
 | Position | 50% DCA | Limits risk on losers |

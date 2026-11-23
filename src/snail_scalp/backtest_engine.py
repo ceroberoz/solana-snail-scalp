@@ -305,20 +305,53 @@ class BacktestEngine:
             else:
                 # Look for entry
                 if len(indicators.prices) >= strategy_config.bb_period:
-                    # Regime gate
+                    # Regime-aware gate + entry mode
+                    regime = "UNKNOWN"
                     regime_ok = True
-                    if getattr(strategy_config, "skip_trending_down_entries", True):
-                        regime = indicators.detect_market_regime(strategy_config.regime_adx_threshold)
-                        if regime == "TRENDING_DOWN":
+                    if getattr(strategy_config, "use_regime_detection", True):
+                        regime = indicators.detect_market_regime(
+                            strategy_config.regime_adx_threshold
+                        )
+                        if (
+                            regime == "CHOPPY"
+                            and getattr(strategy_config, "skip_choppy_markets", True)
+                        ):
                             regime_ok = False
-                        if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
+                        if (
+                            regime == "TRENDING_DOWN"
+                            and getattr(strategy_config, "skip_trending_down_entries", True)
+                        ):
                             regime_ok = False
                     # Confidence gate
                     if regime_ok and getattr(strategy_config, "use_confidence_gate", True):
                         conf = indicators.calculate_confidence_score()
                         if conf < getattr(strategy_config, "min_confidence_score", 50.0):
                             regime_ok = False
-                    if regime_ok and indicators.is_entry_signal(price):
+
+                    entry_ok = False
+                    if regime_ok:
+                        if (
+                            getattr(strategy_config, "regime_aware_entries", True)
+                            and regime == "TRENDING_UP"
+                        ):
+                            entry_ok = indicators.is_momentum_entry_signal(
+                                price,
+                                rsi_min=getattr(strategy_config, "momentum_rsi_min", 45),
+                                rsi_max=getattr(strategy_config, "momentum_rsi_max", 70),
+                                min_band_width=strategy_config.min_band_width_percent,
+                                volume_threshold=getattr(
+                                    strategy_config, "momentum_volume_threshold", 1.1
+                                ),
+                            )
+                        else:
+                            entry_ok = indicators.is_entry_signal(
+                                price,
+                                rsi_min=strategy_config.rsi_oversold_min,
+                                rsi_max=strategy_config.rsi_oversold_max,
+                                min_band_width=strategy_config.min_band_width_percent,
+                            )
+
+                    if entry_ok:
                         size = min(3.0, portfolio.state.available_capital)
                         if size >= 1.0:  # Minimum position size
                             if portfolio.open_position(

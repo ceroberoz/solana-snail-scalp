@@ -2,6 +2,23 @@
 
 All notable changes to the Solana Snail Scalp Bot project.
 
+## [2.2.0] - 2026-11-23
+
+### Added
+- **Regime-aware entry modes**: the trader now picks an entry engine per detected regime instead of using mean reversion everywhere.
+  - `TRENDING_UP` → momentum entries (price above middle BB, RSI 45-70, rising momentum, volume >1.1x, 15m uptrend, no blow-off top).
+  - `RANGING` → existing mean-reversion entries (lower BB, RSI 20-40).
+  - `TRENDING_DOWN` → short when `enable_short_entries=True`, otherwise skip.
+  - `CHOPPY` → skip.
+  - New config: `regime_aware_entries`, `bull_entry_mode`, `range_entry_mode`, `momentum_rsi_min/max`, `momentum_volume_threshold`, `regime_target_multiplier`, `regime_scale_levels`.
+- **Regime-aware exits**: bull momentum trades use wider scale-out targets (2% / 3.5% / 6%) while ranging trades keep 1.5% / 2.5% / 4%; `get_exit_levels` accepts `target_multiplier`.
+- **ATR-based short stops**: shorts now use `entry + ATR × 1.5` capped by `short_stop_percent`, mirroring long stops (`short_use_atr_stop`, `short_stop_atr_multiplier`).
+- **Tests**: `tests/test_regime_entries.py` covers regime routing, momentum/mean-reversion signals, exit target widening, and config defaults.
+
+### Changed
+- **Faster indicators**: `calculate_bb`, `calculate_rsi`, `calculate_atr`, `calculate_adx`, and `calculate_confidence_score` are cached and invalidated on new price data.
+- **Accurate ATR/ADX**: ATR and ADX now use Wilder smoothing and true high/low ranges instead of approximations, making regime detection materially more reliable.
+
 ## [2.1.0] - 2026-11-23
 
 ### Added

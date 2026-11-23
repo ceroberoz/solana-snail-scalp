@@ -1,13 +1,13 @@
 # Solana Snail Scalp Bot - Development Roadmap
 
-**Version:** 2.1  
+**Version:** 2.2  
 **Last Updated:** 2026-11-23  
 **Methodology:** Scrum/Agile  
 **Sprint Duration:** 2 weeks  
 
 ---
 
-## 🆕 Recent Improvements (v2.1)
+## 🆕 Recent Improvements (v2.2)
 
 - Config key alignment; CLI modes (`--simulate`, `--backtest`, `--real-data`, `--multi`) now runnable.
 - Risk/strategy profiles: `default`, `balanced`, `aggressive` (`--profile`).
@@ -17,6 +17,9 @@
 - ATR uses true high/low when OHLC available; deterministic backtests (seed).
 - Short-side entries for bear markets (TRENDING_DOWN) with stop/TP/trailing/time exit.
 - Confidence score recalibrated (regime-weighted).
+- Regime-aware entry modes: momentum in bull trends, mean reversion in ranges, short/skip in bear.
+- Indicator caching + Wilder-smoothed ATR/ADX (faster and more accurate).
+- ATR-based stops for short positions.
 
 ---
 

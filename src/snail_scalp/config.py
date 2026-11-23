@@ -107,6 +107,16 @@ class StrategyConfig:
     skip_choppy_markets: bool = True  # Skip trades when choppy
     skip_trending_down_entries: bool = True  # Skip long entries in TRENDING_DOWN regime
 
+    # Regime-aware entries (bull/bear/ranging use different entry logic)
+    regime_aware_entries: bool = True  # Master switch
+    bull_entry_mode: str = "momentum"  # "momentum" | "pullback"
+    range_entry_mode: str = "mean_reversion"  # "mean_reversion" | "momentum"
+    momentum_rsi_min: int = 45
+    momentum_rsi_max: int = 70
+    momentum_volume_threshold: float = 1.1
+    regime_target_multiplier: dict = None  # Wider targets in trends
+    regime_scale_levels: dict = None  # Per-regime partial-scale profit levels
+
     # Phase filter (memecoin momentum)
     use_phase_filter: bool = True  # Only enter in allowed momentum phases
     allowed_phases: tuple = ("early", "accel")  # Phases considered tradeable
@@ -120,6 +130,22 @@ class StrategyConfig:
                 "TRENDING_DOWN": 0.7,
                 "RANGING": 1.0,
                 "CHOPPY": 0.6,
+            }
+        if self.regime_target_multiplier is None:
+            # Momentum trades let winners run; mean reversion takes profit faster
+            self.regime_target_multiplier = {
+                "TRENDING_UP": 1.25,
+                "TRENDING_DOWN": 1.0,
+                "RANGING": 1.0,
+                "CHOPPY": 0.8,
+            }
+        if self.regime_scale_levels is None:
+            # (portion, profit%) per regime; trend targets are wider
+            self.regime_scale_levels = {
+                "TRENDING_UP": ((0.25, 2.0), (0.25, 3.5), (0.25, 6.0)),
+                "TRENDING_DOWN": ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)),
+                "RANGING": ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)),
+                "CHOPPY": ((0.25, 1.0), (0.25, 2.0), (0.25, 3.0)),
             }
         # Backwards-compatible aliases
         if not hasattr(self, "_dca_allocation"):

@@ -144,6 +144,60 @@ class TechnicalIndicators:
 
         return at_bb and rsi_ok and volatility_ok and not_falling and volume_ok and mtf_ok
 
+    def is_momentum_entry_signal(
+        self,
+        current_price: float,
+        rsi_min: int = 45,
+        rsi_max: int = 70,
+        min_band_width: float = 2.0,
+        volume_threshold: float = 1.1,
+    ) -> bool:
+        """Trend-following long entry for bull markets (TRENDING_UP).
+
+        Unlike mean-reversion (buy the lower band), momentum buys strength:
+        price above the middle band, RSI in the bullish-but-not-overbought
+        zone, short-term rising, with volume and 15m trend confirmation.
+        """
+        bb = self.calculate_bb()
+        rsi = self.calculate_rsi()
+        prices = list(self.prices)
+
+        if bb is None or len(prices) < 5:
+            return False
+
+        # Price trading above the middle band = buyers in control
+        above_mid = current_price >= bb.middle * 0.995
+
+        # Bullish RSI zone (avoid overbought blow-offs)
+        rsi_ok = rsi_min <= rsi <= rsi_max
+
+        # Avoid flat markets
+        volatility_ok = bb.width_percent > min_band_width
+
+        # Short-term momentum is rising
+        rising = current_price > prices[-3]
+
+        # Don't chase a blow-off top far above the upper band
+        not_blowoff = current_price <= bb.upper * 1.02
+
+        # Volume confirmation (lower threshold than mean-reversion)
+        volume_ok = self._check_volume_confirmation(volume_threshold)
+
+        # 15m confirmation: uptrend or RSI above 50 (opposite of mean reversion)
+        mtf_ok = True
+        if self.enable_multi_timeframe and len(self.price_history_15m) >= 15:
+            mtf_ok = self.calculate_rsi_15m() > 50.0 or self.get_15m_trend() == "UPTREND"
+
+        return (
+            above_mid
+            and rsi_ok
+            and volatility_ok
+            and rising
+            and not_blowoff
+            and volume_ok
+            and mtf_ok
+        )
+
     def is_short_entry_signal(
         self,
         current_price: float,
@@ -345,7 +399,8 @@ class TechnicalIndicators:
         return self._cache_atr
 
     def get_exit_levels(self, entry_price: float, use_atr: bool = True, 
-                        atr_multiplier: float = 1.5, max_stop_pct: float = 3.0) -> ExitLevels:
+                        atr_multiplier: float = 1.5, max_stop_pct: float = 3.0,
+                        target_multiplier: float = 1.0) -> ExitLevels:
         """Calculate take-profit and stop-loss levels with ATR support (US-2.1)"""
         bb = self.calculate_bb()
         
@@ -367,9 +422,12 @@ class TechnicalIndicators:
                 tp1=entry_price * 1.025, tp2=entry_price * 1.04, stop=stop
             )
 
+        # Regime-aware targets: widen for momentum/trend, tighten for mean reversion
+        tp1 = entry_price + (bb.middle - entry_price) * target_multiplier
+        tp2 = entry_price + (bb.upper - entry_price) * target_multiplier
         return ExitLevels(
-            tp1=bb.middle,  # Middle band
-            tp2=bb.upper,  # Upper band
+            tp1=tp1,
+            tp2=tp2,
             stop=stop,
         )
 
