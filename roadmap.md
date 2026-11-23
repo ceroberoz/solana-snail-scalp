@@ -537,11 +537,18 @@ As a trader
 I want the bot to manage and trade 3-5 live memecoin positions concurrently
 So that capital is diversified across high-momentum candidates
 
+Design Specifications (Aligned via /grill-me):
+- Equal slot allocation: divide capital equally across 3 active slots with 20% emergency reserve
+- Technical entry gate: wait for 1m/5m pullback to lower BB + RSI 20-40 (or momentum breakout in bull trend)
+- Continuous slot rotation: re-screen market immediately when a position closes to fill open slots
+- Wire PortfolioManager to JupiterClient for live USDT swaps (USDT -> MEME and MEME -> USDT)
+- Two-stage rollout: Stage 1 live paper-trading on real DexScreener ticks -> Stage 2 real micro-capital ($20-$50)
+
 Acceptance Criteria:
-- Wire `PortfolioManager` to `JupiterClient` (replacing `_simulate_price()` with live DEX price feeds)
-- Manage 3-5 distinct position slots with dedicated balance and fill tracking
-- Execute live on-chain entries and staged scale-outs (TP1/TP2) via Jupiter
-- Handle transaction confirmation, timeout retries, and failed swap aborts cleanly
+- Manage 3 concurrent position slots with independent balance, fill, and decimal tracking
+- Execute live on-chain entries via Jupiter with 1.2% - 1.5% slippage cap and price-impact check (<1.5%)
+- Continuous rotation fills vacated slots automatically without restarting the bot
+- Clean error handling: abort unconfirmed swaps without desyncing portfolio state
 
 Story Points: 13
 ```
@@ -550,15 +557,19 @@ Story Points: 13
 **Status:** 📝 Todo
 ```
 As a trader
-I want all 3-5 live memecoin positions protected by the existing risk & exit logic
+I want all active memecoin positions protected by the existing risk & exit logic
 So that downside is capped and winners are locked in
 
+Design Specifications (Aligned via /grill-me):
+- Fast exit polling: 3-5 second tick frequency for active positions to react to rapid memecoin volatility
+- Dynamic priority fees: use Jupiter compute budget / priority fees to ensure exit swaps land within 1-2 blocks
+- Multi-tier scale outs: TP1 (50% close), TP2 (final close), and trailing stop on runner
+
 Acceptance Criteria:
-- Wilder ATR-based dynamic stops trigger live on-chain sell swaps immediately
-- Breakeven stop moves stop price to entry + fees after TP1 is hit
-- Trailing stop locks in profits as the memecoin makes new highs
-- Time-based exit closes stagnant positions after hold limit (e.g., 2 hours)
-- Portfolio-wide daily loss limit and consecutive loss limits stop all trading
+- Wilder ATR stops trigger on-chain sell swap (MEME -> USDT) within 3-5 seconds of price breach
+- Breakeven stop shifts stop price to entry + fee buffer after TP1 execution
+- Trailing stop locks in gains as the token pushes higher highs
+- Portfolio-wide daily loss limit and consecutive loss limits halt all active trading immediately
 
 Story Points: 8
 ```
