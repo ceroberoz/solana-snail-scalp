@@ -351,34 +351,54 @@ class TechnicalIndicators:
             return "RANGING"
 
     def calculate_confidence_score(self) -> float:
-        """Calculate entry confidence score 0-100 (US-3.2)"""
+        """Calculate entry confidence score 0-100 (US-3.2, calibrated).
+
+        Calibrated against trade attribution: TRENDING_UP entries win more,
+        deep oversold / extreme volume often mark falling knives, so their
+        bonus is reduced and regime is weighted heavily.
+        """
         score = 50.0  # Base score
-        
-        # RSI depth factor (lower RSI = higher confidence)
+
+        # RSI depth factor (moderate oversold = higher confidence)
         rsi = self.calculate_rsi()
-        if rsi < 30:
-            score += 20  # Deep oversold
+        if 20 <= rsi < 30:
+            score += 12  # Sweet spot
+        elif rsi < 20:
+            score += 4   # Too deep -> possible falling knife
         elif rsi < 40:
-            score += 10  # Moderate oversold
-        
-        # Volume factor (above average = higher confidence)
+            score += 8   # Moderate oversold
+
+        # Volume factor (moderate above-average = higher confidence)
         if len(self.volumes) >= self.period:
             volumes = list(self.volumes)[-self.period:]
             avg_vol = np.mean(volumes[:-1]) if len(volumes) > 1 else volumes[0]
             current_vol = volumes[-1]
-            if avg_vol > 0 and current_vol >= avg_vol * 1.5:
-                score += 15  # High volume
+            if avg_vol > 0 and current_vol >= avg_vol * 1.3 and current_vol < avg_vol * 2.0:
+                score += 8   # Good volume, not extreme
             elif avg_vol > 0 and current_vol >= avg_vol * 1.3:
-                score += 10  # Good volume
-        
-        # BB width factor (wider = more room to move)
+                score += 4   # Very high volume -> caution
+
+        # BB width factor (moderate width = more room, extreme = risk)
         bb = self.calculate_bb()
         if bb:
-            if bb.width_percent > 4.0:
-                score += 10  # Wide bands
-            elif bb.width_percent > 3.0:
-                score += 5   # Moderate bands
-        
+            if 2.0 < bb.width_percent <= 4.0:
+                score += 6   # Moderate bands
+            elif bb.width_percent > 4.0:
+                score += 2   # Very wide -> high volatility risk
+
+        # Regime factor (calibrated from attribution data)
+        try:
+            regime = self.detect_market_regime()
+        except Exception:
+            regime = "RANGING"
+        regime_bonus = {
+            "TRENDING_UP": 12,
+            "RANGING": 0,
+            "TRENDING_DOWN": -8,
+            "CHOPPY": -15,
+        }
+        score += regime_bonus.get(regime, 0)
+
         return min(100.0, max(0.0, score))
 
     def get_stats(self) -> dict:
