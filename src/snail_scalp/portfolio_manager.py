@@ -131,7 +131,7 @@ class PortfolioManager:
         self.state_file = Path(state_file)
         self.simulate = simulate
         
-        if simulate:
+        if simulate and state_file == "data/portfolio_state.json":
             self.state_file = Path("data/simulation_portfolio.json")
         
         self.state = self._load_state()

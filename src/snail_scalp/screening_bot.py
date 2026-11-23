@@ -54,6 +54,12 @@ class TokenTrader:
                 return False
             if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
                 return False
+
+        # Confidence gate
+        if strategy_config.use_confidence_gate:
+            conf = self.indicators.calculate_confidence_score()
+            if conf < strategy_config.min_confidence_score:
+                return False
         
         # Use existing strategy
         return self.indicators.is_entry_signal(

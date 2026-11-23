@@ -28,6 +28,8 @@ class TechnicalIndicators:
         self.period = period
         self.prices = deque(maxlen=period + 10)
         self.volumes = deque(maxlen=period + 10)
+        self.highs = deque(maxlen=period + 10)
+        self.lows = deque(maxlen=period + 10)
         
         # US-1.4: Multi-timeframe data storage
         self.enable_multi_timeframe = enable_multi_timeframe
@@ -36,10 +38,12 @@ class TechnicalIndicators:
         self.current_candle_prices = []
         self.current_candle_volumes = []
 
-    def add_price(self, price: float, volume: float = 0):
-        """Add new price point"""
+    def add_price(self, price: float, volume: float = 0, high: float = None, low: float = None):
+        """Add new price point (optional high/low for ATR)"""
         self.prices.append(price)
         self.volumes.append(volume)
+        self.highs.append(high if high is not None else price)
+        self.lows.append(low if low is not None else price)
 
     def calculate_bb(self) -> Optional[BollingerBands]:
         """Calculate Bollinger Bands"""
@@ -145,7 +149,7 @@ class TechnicalIndicators:
                   close: float, volume: float, timeframe_minutes: int = 5):
         """Add OHLCV data with multi-timeframe aggregation (US-1.4)"""
         # Always add to primary (5m) data
-        self.add_price(close, volume)
+        self.add_price(close, volume, high=high, low=low)
         
         if not self.enable_multi_timeframe:
             return
@@ -246,12 +250,14 @@ class TechnicalIndicators:
             return 0.0
         
         prices = list(self.prices)
+        highs = list(self.highs) if len(self.highs) == len(prices) else prices
+        lows = list(self.lows) if len(self.lows) == len(prices) else prices
         tr_values = []
         
         for i in range(1, min(period + 1, len(prices))):
-            high = max(prices[-(i+1):-i+1]) if i > 1 else prices[-i]
-            low = min(prices[-(i+1):-i+1]) if i > 1 else prices[-(i+1)]
-            close_prev = prices[-(i+1)]
+            high = highs[-i]
+            low = lows[-i]
+            close_prev = prices[-(i + 1)]
             
             tr = max(high - low, abs(high - close_prev), abs(low - close_prev))
             tr_values.append(tr)

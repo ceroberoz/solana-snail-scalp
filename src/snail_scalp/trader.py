@@ -156,6 +156,16 @@ class Trader:
         else:
             regime = "UNKNOWN"
 
+        # Confidence gate
+        if self.config.get("use_confidence_gate", True):
+            try:
+                conf = indicators.calculate_confidence_score()
+            except Exception:
+                conf = 100.0
+            if conf < self.config.get("min_confidence_score", 50.0):
+                print(f"[SKIP] Confidence {conf:.0f} < {self.config.get('min_confidence_score',50.0):.0f} - skipping trade")
+                return False
+
         if indicators.is_entry_signal(
             current_price,
             rsi_min=self.config.get("rsi_oversold_min", 25),

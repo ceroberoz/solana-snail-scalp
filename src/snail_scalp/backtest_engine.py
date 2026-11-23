@@ -74,12 +74,15 @@ class BacktestEngine:
         max_positions: int = 3,
         min_hype_score: float = 60.0,
         data_file: str = "data/top10_solana_coins.json",
+        seed: int = 42,
     ):
         self.initial_capital = initial_capital
         self.days = days
         self.max_positions = max_positions
         self.min_hype_score = min_hype_score
         self.data_file = data_file
+        self.seed = seed
+        random.seed(seed)
         
         # Load tokens
         self.screener = TokenScreener()
@@ -156,10 +159,18 @@ class BacktestEngine:
         print(f"\nTesting {len(qualified_tokens)} tokens...")
         
         # Portfolio for tracking
+        import os as _os
+        self._bt_state_file = f"data/.backtest_portfolio_{self.seed}.json"
+        try:
+            if _os.path.exists(self._bt_state_file):
+                _os.remove(self._bt_state_file)
+        except Exception:
+            pass
         portfolio = PortfolioManager(
             initial_capital=self.initial_capital,
             max_positions=self.max_positions,
-            simulate=True
+            simulate=True,
+            state_file=self._bt_state_file,
         )
         
         # Track equity curve
@@ -302,6 +313,11 @@ class BacktestEngine:
                             regime_ok = False
                         if regime == "CHOPPY" and strategy_config.skip_choppy_markets:
                             regime_ok = False
+                    # Confidence gate
+                    if regime_ok and getattr(strategy_config, "use_confidence_gate", True):
+                        conf = indicators.calculate_confidence_score()
+                        if conf < getattr(strategy_config, "min_confidence_score", 50.0):
+                            regime_ok = False
                     if regime_ok and indicators.is_entry_signal(price):
                         size = min(3.0, portfolio.state.available_capital)
                         if size >= 1.0:  # Minimum position size
@@ -376,7 +392,8 @@ class BacktestEngine:
 def run_backtest(
     capital: float = 20.0,
     days: int = 30,
-    save: bool = True
+    save: bool = True,
+    seed: int = 42,
 ) -> BacktestResult:
     """Run backtest and return results"""
     engine = BacktestEngine(
@@ -384,6 +401,7 @@ def run_backtest(
         days=days,
         max_positions=3,
         min_hype_score=60.0,
+        seed=seed,
     )
     
     result = engine.run_backtest()

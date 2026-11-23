@@ -79,6 +79,10 @@ class StrategyConfig:
     confidence_rsi_weight: float = 0.4  # 40% weight on RSI depth
     confidence_volume_weight: float = 0.3  # 30% weight on volume
     confidence_bb_weight: float = 0.3  # 30% weight on BB width
+
+    # US-3.2: Confidence gating
+    use_confidence_gate: bool = True  # Skip entries below min confidence
+    min_confidence_score: float = 50.0  # Minimum confidence to enter
     
     # US-3.3: Correlation Risk Management
     use_correlation_check: bool = True  # Enable correlation risk management
@@ -190,6 +194,7 @@ def apply_profile(profile: str = "default"):
         strategy_config.skip_choppy_markets = True
         strategy_config.skip_trending_down_entries = True
         strategy_config.position_size_by_regime = True
+        strategy_config.min_confidence_score = 60.0
         strategy_config.regime_size_multiplier = {
             "TRENDING_UP": 1.2,
             "TRENDING_DOWN": 0.7,
@@ -232,6 +237,7 @@ def apply_profile(profile: str = "default"):
         strategy_config.use_regime_detection = True
         strategy_config.skip_choppy_markets = False
         strategy_config.skip_trending_down_entries = False
+        strategy_config.min_confidence_score = 50.0
         strategy_config.position_size_by_regime = True
         strategy_config.regime_size_multiplier = {
             "TRENDING_UP": 1.2,
