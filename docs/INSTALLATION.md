@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.12 or higher
+- Python 3.10 or higher
 - [uv](https://docs.astral.sh/uv/) package manager
 - (Optional) Git for cloning
 
@@ -77,11 +77,11 @@ uv sync --reinstall
 
 ### Issue: Python version too old
 
-**Solution:** Install Python 3.12+
+**Solution:** Install Python 3.10+
 
 ```bash
 # macOS
-brew install python@3.12
+brew install python@3.12  # or newer
 
 # Ubuntu/Debian
 sudo apt install python3.12
@@ -103,6 +103,25 @@ Run linting and type checking:
 ```bash
 uv run ruff check src/snail_scalp
 uv run mypy src/snail_scalp
+```
+
+## Project Structure
+
+```
+solana-snail-scalp/
+├── src/snail_scalp/          # Source code
+│   ├── cli.py                # CLI entry point
+│   ├── token_screener.py     # Token ranking
+│   ├── portfolio_manager.py  # Position tracking
+│   ├── backtest_engine.py    # Historical testing
+│   ├── trader.py             # Entry/exit execution
+│   ├── indicators.py         # BB, RSI, ATR, ADX, regimes
+│   └── jupiter.py            # Jupiter v2 live swaps
+├── data/                     # Price data, reports, attribution
+├── docs/                     # Documentation
+├── examples/                 # Example scripts
+├── scripts/                  # Analysis helpers
+└── tests/                    # Test suite
 ```
 
 ## Next Steps

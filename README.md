@@ -1,271 +1,57 @@
 # Solana Snail Scalp Bot 🐌
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A conservative multi-token scalping strategy for Solana with automatic token screening and real market data support.
+A **regime-aware scalping bot for Solana memecoins**. It screens tokens, trades Bollinger Bands + RSI setups, and adapts its entry logic to the market: momentum in bull trends, mean reversion in ranges, and optional shorts in bear trends.
 
-## Quick Start
+## Why run it
+
+- **Adapts instead of forcing one strategy** — momentum when the market trends up, mean reversion when it ranges, short or stay flat when it trends down.
+- **Built for small capital** — starts at $20 with per-trade and daily loss caps.
+- **Test before you risk money** — screen tokens, simulate, and backtest with one CLI.
+- **Live-ready** — executes real swaps through Jupiter v2 when simulation is disabled.
+- **Explainable** — every trade records regime + confidence for later attribution.
+
+## At a glance
+
+| Capability | What you get |
+|---|---|
+| Token screening | Ranks Solana memecoins by hype, volume and risk |
+| Entries | Bollinger Bands + RSI, regime-aware |
+| Exits | ATR stops, breakeven, trailing, partial scale-outs, time exit |
+| Risk | Dynamic sizing, correlation check, daily loss + consecutive-loss limits |
+| Modes | screen · simulate · backtest · multi-token · live |
+
+## Quick start
 
 ```bash
-# Install
 git clone https://github.com/ceroberoz/solana-snail-scalp.git
 cd solana-snail-scalp
 uv sync
 
-# Screen tokens
-uv run python -m snail_scalp --screen
-
-# Simulate with real data
-uv run python -m snail_scalp --real-data --capital 20
-
-# Backtest
-uv run python -m snail_scalp --backtest --days 30
+uv run python -m snail_scalp --screen                  # find candidates
+uv run python -m snail_scalp --backtest --days 30      # validate the strategy
+uv run python -m snail_scalp --simulate --fast         # paper trade
 ```
 
-## CLI Commands
-
-| Command | Description | Example Output |
-|---------|-------------|----------------|
-| `--screen` | Find best trading opportunities | Top 5 tokens with hype scores |
-| `--real-data` | Simulate with real market data | Fetches CoinGecko data, shows PnL |
-| `--backtest` | Test strategy historically | Win rate, max drawdown, Sharpe ratio |
-| `--multi` | Multi-token trading mode | Portfolio tracking across 3 positions |
-| `--simulate` | Single-token simulation | Price feed + indicator values |
-| `--dashboard` | Monitoring dashboard | Portfolio, attribution, last backtest |
-| `--profile` | Risk/strategy profile | default, balanced, aggressive |
-| `--fast` | Fast simulation | Skip per-candle delays |
-
-## Common Usage Examples
-
-### 1. Screen for Opportunities
-```bash
-uv run python -m snail_scalp --screen
-```
-
-**Expected Output:**
-```
-[ROCKET] SOLANA SCALPING DASHBOARD
-
-[TARGET] TOP SCALPING CANDIDATES:
-#   Symbol    Price       24h%      Vol/MCap    Risk      Score
-1   COPPERINU $0.006442   +29.7%    1.83x       HIGH      83.4
-2   BIRB      $0.312900   +26.8%    3.65x       MODERATE  78.7
-3   PENGUIN   $0.031040   +16.1%    1.16x       MODERATE  83.5
-
-Watchlist exported to: data/screening_watchlist.json
-```
-
-### 2. Simulate with Real Data
-```bash
-uv run python -m snail_scalp --real-data --token solana --days 7 --capital 20
-```
-
-**Expected Output:**
-```
-======================================================================
-REAL DATA SIMULATION MODE
-======================================================================
-Token: SOLANA
-Days: 7
-Capital: $20.00
-======================================================================
-
-[FETCH] Getting 7 days of solana data from CoinGecko...
-[OK] Downloaded 168 price points
-
-[MARKET DATA]
-  Price Range: $76.56 - $89.98
-  Change: +7.39%
-
-======================================================================
-SIMULATION RESULTS (REAL DATA)
-======================================================================
-Initial Capital:    $20.00
-Total PnL:          $+0.45
-Return:             +2.25%
-Total Trades:       3
-Win Rate:           66.7%
-======================================================================
-```
-
-### 3. Backtest Strategy
-```bash
-uv run python -m snail_scalp --backtest --days 30 --capital 20
-```
-
-**Expected Output:**
-```
-======================================================================
-BACKTEST RESULTS
-======================================================================
-
-Initial Capital: $20.00
-Final Value: $23.17
-Total Return: +15.84%
-Total Trades: 245
-Win Rate: 41.2%
-Max Drawdown: 5.75%
-Sharpe Ratio: 1.68
-
-Report saved to: data/backtest_report.json
-```
-
-## Profiles
-
-Choose a profile with `--profile` (or `--aggressive` shorthand):
-
-| Profile | Entries | Sizing | Risk | Notes |
-|---------|---------|--------|------|-------|
-| `default` | RSI 20-40 | $3 base, 0.5-1.5x | $1.50 daily loss, 2 consecutive losses | Conservative baseline |
-| `balanced` | RSI 18-42 | $4 base, 0.6-1.75x | $2.00 daily loss, 4 consecutive losses | Middle ground |
-| `aggressive` | RSI 15-45 | $5 base, 0.75-2.0x | $3.00 daily loss, 5 consecutive losses | Higher throughput; enables short entries |
-
-```bash
-uv run python -m snail_scalp --backtest --days 30 --profile aggressive
-uv run python -m snail_scalp --simulate --speed 1000 --profile balanced --fast
-```
-
-## Regime-Aware Entries
-
-`regime_aware_entries=True` (default) makes the bot choose its entry engine from the detected market regime instead of applying one mean-reversion rule everywhere:
-
-| Regime | Entry mode | Signal |
-|--------|------------|--------|
-| `TRENDING_UP` | Momentum | Price above middle BB, RSI 45-70, rising momentum, volume >1.1x, 15m uptrend, no blow-off top |
-| `RANGING` | Mean reversion | Lower BB, RSI 20-40, volume >1.3x, 15m RSI <50 |
-| `TRENDING_DOWN` | Short (if enabled) / skip | Upper BB, RSI 60-80, volume confirmation |
-| `CHOPPY` | Skip | No entries |
-
-Bull momentum trades also use wider scale-out targets (2% / 3.5% / 6%) so winners can run; ranging trades keep 1.5% / 2.5% / 4%. Tune with `bull_entry_mode`, `range_entry_mode`, `momentum_rsi_min/max`, and `regime_scale_levels`. Set `regime_aware_entries=False` to restore single-mode mean reversion.
-
-## Bear-Market / Short Handling
-
-The bot is long-only by default. In `TRENDING_DOWN` regimes it normally skips entries. With `enable_short_entries=True` (aggressive profile) it can **short**:
-
-- Entry: price at upper BB, RSI 60-80, volume confirmation, 15m RSI > 50.
-- Exit: stop above entry, take-profit below entry, trailing stop, time exit.
-- PnL sign is inverted for shorts.
-
-```bash
-uv run python -m snail_scalp --simulate --profile aggressive --fast
-```
-
-## Live Trading (Jupiter)
-
-Disable simulation to trade live via Jupiter Swap API v2:
-
-```bash
-# Install signing deps
-pip install solders base58
-
-# Provide wallet + (optional) API key
-export SOLANA_PRIVATE_KEY="<base58 or JSON array>"
-export JUPITER_API_KEY="<your key>"
-
-# Live single-token mode
-uv run python -m snail_scalp --capital 20
-```
-
-The trader fetches a quote, builds/signs the transaction, and lands it through Jupiter `/execute`. If no signer is available, the unsigned tx is saved to `data/pending_swap.json` for manual signing.
-
-## Monitoring
-
-```bash
-uv run python -m snail_scalp --dashboard
-python scripts/analyze_trades.py
-```
-
-The dashboard reads `data/trade_attribution.csv` (regime + confidence per trade) and the last backtest report.
-
-## Key Features
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Entry Optimization** | Widen RSI (20-40), Volume confirmation (>1.3x), BB near-touch (0.5%), Multi-timeframe (15m confirms 5m) | ✅ Complete |
-| **Exit Strategy** | ATR-based stops, Breakeven after TP1, Trailing stop (1% below high), Time-based exit (2h max) | ✅ Complete |
-| **Profit Scaling** | Partial scale out at 25%/50%/75% with final trailing stop | ✅ Complete |
-| **Risk Management** | 50% DCA size, Dynamic position sizing (50-150%), Correlation check (max 2) | ✅ Complete |
-| **Intelligence** | Market regime detection, Confidence scoring, Skip choppy markets | ✅ Complete |
-| **Regime-Aware Entries** | Momentum in bull trends, mean reversion in ranges, short/skip in bear | ✅ Complete |
-
-See [Strategy Guide](docs/STRATEGY.md) for comprehensive feature documentation.
-
-## Configuration
-
-Edit `src/snail_scalp/config.py`:
-
-```python
-# Entry Settings
-rsi_oversold_min = 20         # RSI entry lower bound (was 25)
-rsi_oversold_max = 40         # RSI entry upper bound (was 35)
-
-# Exit Settings
-use_atr_stop = True           # ATR-based dynamic stops
-use_breakeven_stop = True     # Move stop to breakeven after TP1
-use_trailing_stop = True      # Trail at 1% below recent high
-use_time_exit = True          # Max 2 hour hold time
-
-# Profit Scaling
-use_partial_scaling = True    # Scale out at 25/50/75%
-partial_scale_levels = ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0))
-
-# Risk Management
-dca_allocation_ratio = 0.5    # DCA size = 50% of original
-use_dynamic_sizing = True     # Size based on confidence
-use_correlation_check = True  # Max 2 correlated positions
-
-# Intelligence
-use_regime_detection = True   # Detect trending/ranging/choppy
-regime_aware_entries = True   # Momentum in bull, mean reversion in range
-skip_choppy_markets = True    # Skip low-quality markets
-```
-
-## Risk Management
-
-| Limit | Value | Action |
-|-------|-------|--------|
-| Daily Loss | $1.50 (7.5%) | Stop trading |
-| Consecutive Losses | 2 | 24h pause |
-| Max Position | $6 (30%) | Per trade |
-| Max Positions | 3 | Concurrent |
+Live trading requires a funded wallet and `solders`; see [Integration](docs/INTEGRATION.md).
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Installation](docs/INSTALLATION.md) | Setup instructions |
-| [CLI Reference](docs/CLI_REFERENCE.md) | All commands and flags |
-| [Strategy](docs/STRATEGY.md) | How the trading strategy works |
-| [Real Data](docs/REAL_DATA.md) | Using real market data |
-| [Integration](docs/INTEGRATION.md) | Advanced usage and API |
+| Doc | Contents |
+|---|---|
+| [Installation](docs/INSTALLATION.md) | Requirements, setup, project layout |
+| [CLI Reference](docs/CLI_REFERENCE.md) | Commands, flags, example output |
+| [Strategy](docs/STRATEGY.md) | Entry/exit logic, regimes, profiles, risk limits |
+| [Real Data](docs/REAL_DATA.md) | CoinGecko / DexScreener data modes |
+| [Integration](docs/INTEGRATION.md) | Jupiter live trading, APIs, webhooks |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues and fixes |
 
-## Project Structure
+## Safety
 
-```
-solana-snail-scalp/
-├── src/snail_scalp/          # Source code
-│   ├── cli.py                # CLI entry point
-│   ├── token_screener.py     # Token ranking
-│   ├── portfolio_manager.py  # Position tracking
-│   ├── backtest_engine.py    # Historical testing
-│   └── ...
-├── data/                     # Data files
-├── docs/                     # Documentation
-├── examples/                 # Example scripts
-└── README.md                 # This file
-```
-
-## Safety Disclaimer
-
-⚠️ **Trading Risk**: Cryptocurrency trading carries significant risk. Never trade with money you cannot afford to lose completely. Past performance does not guarantee future results.
-
-- Start with small capital ($20)
-- Always backtest before live trading
-- Monitor positions - this is semi-automated
-- Use simulation mode first
+⚠️ Crypto trading is high risk. Start with $20, backtest and paper-trade first, and never use money you cannot afford to lose. Simulation is the default; live trading is opt-in.
 
 ## License
 
-MIT License - Use at your own risk.
+MIT — use at your own risk.

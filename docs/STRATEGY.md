@@ -582,6 +582,31 @@ Based on backtests with $20 capital and all features enabled:
 | Exit | Time Exit | Max 2 hour hold |
 | Exit | Partial Scaling | Smooth profit taking |
 
+### Default Risk Limits
+
+| Limit | Value | Action |
+|-------|-------|--------|
+| Daily loss | $1.50 (7.5%) | Stop trading |
+| Consecutive losses | 2 | 24h pause |
+| Max position | $6 (30%) | Per trade |
+| Max positions | 3 | Concurrent |
+
+Profiles raise these limits (see [Profiles](#profiles)); the table above reflects the `default` profile.
+
+---
+
+## Feature Summary
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Entry optimization | Wide RSI band, volume confirmation, BB near-touch, 15m confirmation | ✅ Complete |
+| Regime-aware entries | Momentum in bull, mean reversion in range, short/skip in bear | ✅ Complete |
+| Exit strategy | ATR stops, breakeven after TP1, trailing stop, time exit | ✅ Complete |
+| Profit scaling | Partial scale-out at 25/50/75% with final trailing stop | ✅ Complete |
+| Risk management | 50% DCA, confidence sizing (50-150%), correlation check | ✅ Complete |
+| Intelligence | Regime detection, confidence scoring, choppy-market filter | ✅ Complete |
+| Live trading | Jupiter Swap API v2 execution (opt-in) | ✅ Complete |
+
 ---
 
 ## Further Reading

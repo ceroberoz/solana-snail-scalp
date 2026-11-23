@@ -16,6 +16,7 @@ All notable changes to the Solana Snail Scalp Bot project.
 - **Tests**: `tests/test_regime_entries.py` covers regime routing, momentum/mean-reversion signals, exit target widening, and config defaults.
 
 ### Changed
+- **Slimmer README**: now a product overview (what it does, why run it, benefits). Setup, CLI, strategy, risk limits and project layout live under `docs/`.
 - **Faster indicators**: `calculate_bb`, `calculate_rsi`, `calculate_atr`, `calculate_adx`, and `calculate_confidence_score` are cached and invalidated on new price data.
 - **Accurate ATR/ADX**: ATR and ADX now use Wilder smoothing and true high/low ranges instead of approximations, making regime detection materially more reliable.
 
