@@ -20,6 +20,8 @@ All conditions must be met for entry:
 | 4 | BB Width | `> 2%` | Avoid flat markets |
 | 5 | Price vs Recent Low | `> 99%` | Avoid falling knives |
 | 6 | 15m RSI | `< 50` | Higher timeframe confirmation |
+| 7 | Market Regime | not CHOPPY / not TRENDING_DOWN (configurable) | Skip noisy or strongly bearish markets |
+| 8 | Confidence Gate | `>= min_confidence_score` (default 50) | Skip low-quality setups |
 
 ### RSI Range Evolution
 
@@ -80,6 +82,8 @@ final_stop = max(atr_stop, max_stop)
 | High volatility | 3.0% | 3.0% (capped) |
 
 **Benefit:** Stops adapt to market volatility - tighter in calm markets, wider in volatile markets.
+
+**Note:** When OHLC data is available (e.g. real-data fetcher), ATR uses true high/low for a more accurate true range; otherwise it falls back to close-to-close.
 
 ### Breakeven Stop (US-2.2)
 
@@ -265,6 +269,28 @@ final_size = confidence_based_size * regime_multiplier
 
 ---
 
+## Profiles
+
+Three built-in profiles tune entries, exits, sizing and risk limits:
+
+| Profile | RSI | Size | Daily Loss | Consec. Losses | Notes |
+|---------|-----|------|------------|----------------|-------|
+| default | 20-40 | $3 base, 0.5-1.5x | $1.50, 2 | Conservative baseline |
+| balanced | 18-42 | $4 base, 0.6-1.75x | $2.00, 4 | Middle ground |
+| aggressive | 15-45 | $5 base, 0.75-2.0x | $3.00, 5 | Higher throughput, trending-down entries allowed |
+
+Select with `--profile {default,balanced,aggressive}` or `--aggressive`.
+
+## Monitoring & Attribution
+
+Each closed trade is appended to `data/trade_attribution.csv` with entry regime and confidence score. Analyze with:
+
+```bash
+python scripts/analyze_trades.py
+```
+
+The `--dashboard` command summarizes portfolio state, attribution by regime/confidence, and the last backtest.
+
 ## Configuration Reference
 
 ### Sprint 1-2 Features
@@ -323,7 +349,12 @@ correlation_threshold = 0.7
 # Regime Detection
 use_regime_detection = True
 skip_choppy_markets = True
+skip_trending_down_entries = True
 regime_adx_threshold = 25.0
+
+# Confidence Gating
+use_confidence_gate = True
+min_confidence_score = 50.0
 ```
 
 ---
@@ -441,6 +472,7 @@ Based on backtests with $20 capital and all features enabled:
 - CHOPPY regime (noise)
 - TRENDING_DOWN (reduce size or skip)
 - Volume <1.0x average
+- Confidence below `min_confidence_score`
 - 15m RSI >50 (overbought on higher TF)
 - Correlated with 2+ active positions
 - Extreme volatility (>10% BB width)
