@@ -46,6 +46,7 @@ Live trading requires a funded wallet and `solders`; see [Integration](docs/INTE
 | [Strategy](docs/STRATEGY.md) | Entry/exit logic, regimes, profiles, risk limits |
 | [Real Data](docs/REAL_DATA.md) | CoinGecko / DexScreener data modes |
 | [Integration](docs/INTEGRATION.md) | Jupiter live trading, APIs, webhooks |
+| [Agent Operations](docs/AGENT_OPERATIONS.md) | 24/7 operator prompt, supervision, kill switch |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues and fixes |
 
 ## Safety

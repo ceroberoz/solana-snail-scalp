@@ -15,6 +15,15 @@ All notable changes to the Solana Snail Scalp Bot project.
 - **ATR-based short stops**: shorts now use `entry + ATR × 1.5` capped by `short_stop_percent`, mirroring long stops (`short_use_atr_stop`, `short_stop_atr_multiplier`).
 - **Tests**: `tests/test_regime_entries.py` covers regime routing, momentum/mean-reversion signals, exit target widening, and config defaults.
 
+### Fixed
+- **Live long closes**: removed an undefined helper call and sized the SOL→USDC sell from the position's USD notional at the current price (0.5% buffer).
+- **Live partial scale-outs**: partial closes now execute their proportional on-chain swap instead of only updating bookkeeping.
+- **Fail-closed entries**: live entries abort when Jupiter does not confirm execution (`pending_signature` / `execute_failed`).
+- **Live shorts refused**: spot mode now rejects short entries instead of silently opening a long swap.
+
+### Added
+- **[Agent Operations](docs/AGENT_OPERATIONS.md)**: copy-paste 24/7 operator prompt, systemd unit, monitoring cadence, escalation rules and kill switch.
+
 ### Changed
 - **Slimmer README**: now a product overview (what it does, why run it, benefits). Setup, CLI, strategy, risk limits and project layout live under `docs/`.
 - **Faster indicators**: `calculate_bb`, `calculate_rsi`, `calculate_atr`, `calculate_adx`, and `calculate_confidence_score` are cached and invalidated on new price data.

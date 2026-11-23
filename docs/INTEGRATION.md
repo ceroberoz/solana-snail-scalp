@@ -184,7 +184,15 @@ Wallet signing:
 - Signing requires the optional `solders` package (`pip install solders base58`).
 
 Live mode is activated by disabling simulation (`simulate=False`); the trader calls Jupiter automatically on entry and exit.
-```
+
+### Known live-mode limits
+
+- Live execution currently swaps **USDC ↔ SOL** using `TOKEN_IN` / `TOKEN_OUT`. It does not automatically trade screened memecoins; only change the mints/pair if you know what you are doing.
+- **Shorts are simulation-only.** Spot live mode refuses short entries because there is no borrow/margin integration.
+- Long closes size the SOL sell from `size_usd / current_price` with a 0.5% buffer. Partial scale-outs sell their proportional share on-chain.
+- If a close swap fails, the bot still marks the position closed in bookkeeping but prints `[LIVE][CRITICAL]`; verify the wallet manually.
+- `--capital` is the bot's accounting base, not a wallet balance check. Fund the wallet with at least the capital plus SOL for fees.
+- Live mode is beta. Run it under supervision and start with $20–$50.
 
 ### Webhook Notifications
 

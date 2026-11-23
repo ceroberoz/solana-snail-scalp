@@ -263,6 +263,9 @@ class Trader:
 
     async def _execute_entry(self, price: float, indicators, available_capital: float, regime: str = "", symbol: str = "", side: str = "long") -> bool:
         """Execute entry order with Sprint 5-6 enhancements"""
+        if side == "short" and not self.simulate:
+            print("[LIVE] Shorts are not supported in spot live mode - refusing entry")
+            return False
         if side == "short":
             base_size = self.config.get("short_allocation", 3.0)
         else:
@@ -317,11 +320,19 @@ class Trader:
                 taker = str(kp.pubkey()) if kp is not None else None
                 slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)
                 res = await swap(TOKEN_IN, TOKEN_OUT, amount, taker=taker, slippage_bps=slippage_bps)
-                print(f"   [LIVE] Jupiter result: {res.get('status')}")
-                if res.get("status") == "pending_signature":
+                status = res.get("status")
+                print(f"   [LIVE] Jupiter result: {status}")
+                if status == "pending_signature":
                     print(f"   Unsigned tx saved to {res.get('file')} (set SOLANA_PRIVATE_KEY or SOLANA_KEYPAIR_PATH to auto-sign)")
+                    print("   [LIVE] Entry not confirmed on-chain - aborting position")
+                    return False
+                if status != "executed":
+                    print(f"   [LIVE] Entry swap not executed ({status}) - aborting position")
+                    return False
             except Exception as e:
                 print(f"   [LIVE] Jupiter swap error: {e}")
+                print("   [LIVE] Entry not confirmed on-chain - aborting position")
+                return False
 
         # US-2.6: Initialize partial scaling tracking (regime-aware targets)
         scale_config = self.config.get("partial_scale_levels", ((0.25, 1.5), (0.25, 2.5), (0.25, 4.0)))
@@ -580,6 +591,41 @@ class Trader:
                 await self._close_position(current_price, CloseReason.STOP_LOSS)
                 return
 
+    async def _live_swap_out(self, size_usd: float, price: float, side: str = "long") -> bool:
+        """Best-effort on-chain swap to reduce a live position (SOL -> USDC).
+
+        Returns True only when Jupiter confirms execution.
+        """
+        if self.simulate:
+            return True
+        try:
+            from snail_scalp.jupiter import swap, load_keypair
+            from snail_scalp.config import TOKEN_IN, TOKEN_OUT
+
+            kp = load_keypair()
+            taker = str(kp.pubkey()) if kp is not None else None
+
+            if side == "long":
+                # Selling SOL back to USDC: convert USD notional to SOL at current price.
+                # 0.5% buffer avoids "insufficient funds" if price moved or fees were taken.
+                sol_amount = (size_usd / price) * 0.995 if price > 0 else 0.0
+                amount = int(sol_amount * 1_000_000_000)
+                in_mint, out_mint = TOKEN_OUT, TOKEN_IN
+            else:
+                amount = int(size_usd * 1_000_000)
+                in_mint, out_mint = TOKEN_IN, TOKEN_OUT
+
+            slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)
+            res = await swap(in_mint, out_mint, amount, taker=taker, slippage_bps=slippage_bps)
+            status = res.get("status")
+            print(f"   [LIVE] Swap result: {status}")
+            if status == "pending_signature":
+                print(f"   Unsigned tx saved to {res.get('file')}")
+            return status == "executed"
+        except Exception as e:
+            print(f"   [LIVE] Swap error: {e}")
+            return False
+
     async def _partial_close(self, price: float, portion: float, reason: CloseReason):
         """Close portion of position (TP1)"""
         pos = self.active_position
@@ -587,6 +633,12 @@ class Trader:
         pnl = (price - pos.entry_price) / pos.entry_price * size
 
         print(f"   Closing {portion * 100:.0f}% (${size:.2f}) PnL: ${pnl:.2f}")
+
+        # Execute the on-chain sell for this portion before updating bookkeeping.
+        if not self.simulate:
+            ok = await self._live_swap_out(size, price, getattr(pos, "side", "long"))
+            if not ok:
+                print("   [LIVE][CRITICAL] Partial close swap failed; position left open on-chain. Manual check required.")
 
         # Update position
         pos.size_usd -= size
@@ -632,27 +684,11 @@ class Trader:
         self.trade_history.append(pos)
         self._save_history()
 
-        # Live swap back (best-effort)
+        # Live swap back (best-effort; warn loudly on failure)
         if not self.simulate:
-            try:
-                import asyncio
-                from snail_scalp.jupiter import swap, load_keypair
-                from snail_scalp.config import TOKEN_IN, TOKEN_OUT
-                kp = load_keypair()
-                taker = str(kp.pubkey()) if kp is not None else None
-                side = getattr(pos, "side", "long")
-                if side == "long":
-                    in_mint, out_mint = TOKEN_OUT, TOKEN_IN
-                else:
-                    in_mint, out_mint = TOKEN_IN, TOKEN_OUT
-                amount = int(size * 1_000_000) if side == "short" else int(size_usd_to_lamports(size, price))
-                # amount in smallest units of input mint; approximate using size_usd
-                amount = int(size * (1_000_000 if in_mint == TOKEN_IN else 1_000_000_000))
-                slippage_bps = int(self.config.get("max_slippage_percent", 0.8) * 100)
-                res = await swap(in_mint, out_mint, amount, taker=taker, slippage_bps=slippage_bps)
-                print(f"   [LIVE] Close swap result: {res.get('status')}")
-            except Exception as e:
-                print(f"   [LIVE] Close swap error: {e}")
+            ok = await self._live_swap_out(size, price, getattr(pos, "side", "long"))
+            if not ok:
+                print("   [LIVE][CRITICAL] Close swap failed; tokens may still be in the wallet. Manual check required.")
 
         # Append to trade attribution log
         try:
