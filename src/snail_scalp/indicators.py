@@ -30,6 +30,14 @@ class TechnicalIndicators:
         self.volumes = deque(maxlen=period + 10)
         self.highs = deque(maxlen=period + 10)
         self.lows = deque(maxlen=period + 10)
+        # Cache
+        self._dirty = True
+        self._cache_bb = None
+        self._cache_rsi = None
+        self._cache_rsi_period = None
+        self._cache_atr = None
+        self._cache_adx = None
+        self._cache_confidence = None
         
         # US-1.4: Multi-timeframe data storage
         self.enable_multi_timeframe = enable_multi_timeframe
@@ -44,25 +52,41 @@ class TechnicalIndicators:
         self.volumes.append(volume)
         self.highs.append(high if high is not None else price)
         self.lows.append(low if low is not None else price)
+        self._cache_bb = None
+        self._cache_rsi = None
+        self._cache_rsi_period = None
+        self._cache_atr = None
+        self._cache_adx = None
+        self._cache_confidence = None
 
     def calculate_bb(self) -> Optional[BollingerBands]:
-        """Calculate Bollinger Bands"""
+        """Calculate Bollinger Bands (cached)"""
+        if self._cache_bb is not None:
+            return self._cache_bb
         if len(self.prices) < self.period:
+            self._cache_bb = None
             return None
 
         prices = list(self.prices)[-self.period :]
-        sma = np.mean(prices)
-        std = np.std(prices)
+        sma = float(np.mean(prices))
+        std = float(np.std(prices))
 
         upper = sma + (std * 2)
         lower = sma - (std * 2)
         width = ((upper - lower) / sma) * 100
 
-        return BollingerBands(lower=lower, middle=sma, upper=upper, width_percent=width)
+        bb = BollingerBands(lower=lower, middle=sma, upper=upper, width_percent=width)
+        self._cache_bb = bb
+        return bb
 
     def calculate_rsi(self, period: int = 14) -> float:
-        """Calculate Relative Strength Index"""
+        """Calculate Relative Strength Index (cached for default period)"""
+        if period == 14 and self._cache_rsi is not None and self._cache_rsi_period == 14:
+            return self._cache_rsi
         if len(self.prices) < period + 1:
+            if period == 14:
+                self._cache_rsi = 50.0
+                self._cache_rsi_period = 14
             return 50.0  # Neutral when not enough data
 
         prices = list(self.prices)[-period - 1 :]
@@ -71,14 +95,19 @@ class TechnicalIndicators:
         gains = [d if d > 0 else 0 for d in deltas]
         losses = [-d if d < 0 else 0 for d in deltas]
 
-        avg_gain = np.mean(gains)
-        avg_loss = np.mean(losses)
+        avg_gain = float(np.mean(gains))
+        avg_loss = float(np.mean(losses))
 
         if avg_loss == 0:
-            return 100.0
+            rsi = 100.0
+        else:
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
 
-        rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
+        if period == 14:
+            self._cache_rsi = rsi
+            self._cache_rsi_period = 14
+        return rsi
 
     def is_entry_signal(
         self,
@@ -283,24 +312,37 @@ class TechnicalIndicators:
         return rsi_ok and trend_ok
 
     def calculate_atr(self, period: int = 14) -> float:
-        """Calculate Average True Range (ATR) for dynamic stops (US-2.1)"""
-        if len(self.prices) < period + 1:
-            return 0.0
-        
+        """Calculate ATR with Wilder smoothing (cached)"""
+        if self._cache_atr is not None:
+            return self._cache_atr
         prices = list(self.prices)
         highs = list(self.highs) if len(self.highs) == len(prices) else prices
         lows = list(self.lows) if len(self.lows) == len(prices) else prices
-        tr_values = []
-        
-        for i in range(1, min(period + 1, len(prices))):
-            high = highs[-i]
-            low = lows[-i]
-            close_prev = prices[-(i + 1)]
-            
-            tr = max(high - low, abs(high - close_prev), abs(low - close_prev))
-            tr_values.append(tr)
-        
-        return np.mean(tr_values) if tr_values else 0.0
+        if len(prices) < period + 1:
+            self._cache_atr = 0.0
+            return 0.0
+
+        # True ranges
+        trs = []
+        for i in range(1, len(prices)):
+            tr = max(
+                highs[i] - lows[i],
+                abs(highs[i] - prices[i - 1]),
+                abs(lows[i] - prices[i - 1]),
+            )
+            trs.append(tr)
+
+        if len(trs) < period:
+            self._cache_atr = 0.0
+            return 0.0
+
+        # Wilder smoothing
+        atr = sum(trs[:period]) / period
+        for tr in trs[period:]:
+            atr = (atr * (period - 1) + tr) / period
+
+        self._cache_atr = float(atr)
+        return self._cache_atr
 
     def get_exit_levels(self, entry_price: float, use_atr: bool = True, 
                         atr_multiplier: float = 1.5, max_stop_pct: float = 3.0) -> ExitLevels:
@@ -332,44 +374,72 @@ class TechnicalIndicators:
         )
 
     def calculate_adx(self, period: int = 14) -> Tuple[float, float, float]:
-        """Calculate ADX, +DI, -DI for trend strength (US-1.5)"""
-        if len(self.prices) < period * 2 + 1:
-            return 25.0, 20.0, 20.0  # Neutral trend if not enough data
-        
+        """Calculate ADX, +DI, -DI with Wilder smoothing (cached)"""
+        if self._cache_adx is not None:
+            return self._cache_adx
         prices = list(self.prices)
-        highs = prices
-        lows = prices
-        closes = prices
-        
-        # Calculate +DM and -DM
-        plus_dm = []
-        minus_dm = []
-        tr_values = []
-        
-        for i in range(1, min(period * 2 + 1, len(prices))):
-            high_diff = highs[-i] - highs[-(i+1)]
-            low_diff = lows[-(i+1)] - lows[-i]
-            
-            plus_dm.append(max(high_diff, 0) if high_diff > low_diff else 0)
-            minus_dm.append(max(low_diff, 0) if low_diff > high_diff else 0)
-            
-            # True Range
-            tr = max(
-                highs[-i] - lows[-i],
-                abs(highs[-i] - closes[-(i+1)]),
-                abs(lows[-i] - closes[-(i+1)])
+        highs = list(self.highs) if len(self.highs) == len(prices) else prices
+        lows = list(self.lows) if len(self.lows) == len(prices) else prices
+
+        n = len(prices)
+        if n < period * 2 + 1:
+            res = (25.0, 20.0, 20.0)
+            self._cache_adx = res
+            return res
+
+        # +DM, -DM, TR
+        plus_dm = [0.0] * (n - 1)
+        minus_dm = [0.0] * (n - 1)
+        trs = [0.0] * (n - 1)
+        for i in range(1, n):
+            up = highs[i] - highs[i - 1]
+            down = lows[i - 1] - lows[i]
+            plus_dm[i - 1] = up if (up > down and up > 0) else 0.0
+            minus_dm[i - 1] = down if (down > up and down > 0) else 0.0
+            trs[i - 1] = max(
+                highs[i] - lows[i],
+                abs(highs[i] - prices[i - 1]),
+                abs(lows[i] - prices[i - 1]),
             )
-            tr_values.append(tr)
-        
-        # Smooth DM and TR
-        plus_di = 100 * np.mean(plus_dm[-period:]) / np.mean(tr_values[-period:]) if np.mean(tr_values[-period:]) > 0 else 0
-        minus_di = 100 * np.mean(minus_dm[-period:]) / np.mean(tr_values[-period:]) if np.mean(tr_values[-period:]) > 0 else 0
-        
-        # Calculate DX and ADX
-        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0
-        adx = np.mean([dx] * period)  # Simplified ADX
-        
-        return adx, plus_di, minus_di
+
+        # Wilder smoothing
+        def wilder(series, p):
+            out = [0.0] * len(series)
+            if len(series) < p:
+                return out
+            out[p - 1] = sum(series[:p])
+            for i in range(p, len(series)):
+                out[i] = out[i - 1] - (out[i - 1] / p) + series[i]
+            return out
+
+        sm_plus = wilder(plus_dm, period)
+        sm_minus = wilder(minus_dm, period)
+        sm_tr = wilder(trs, period)
+
+        plus_di_arr = [0.0] * (n - 1)
+        minus_di_arr = [0.0] * (n - 1)
+        dx_arr = [0.0] * (n - 1)
+        for i in range(period - 1, n - 1):
+            tr = sm_tr[i]
+            if tr == 0:
+                continue
+            pdi = 100.0 * sm_plus[i] / tr
+            mdi = 100.0 * sm_minus[i] / tr
+            plus_di_arr[i] = pdi
+            minus_di_arr[i] = mdi
+            denom = pdi + mdi
+            dx_arr[i] = (100.0 * abs(pdi - mdi) / denom) if denom > 0 else 0.0
+
+        # ADX = Wilder smoothing of DX
+        adx_series = wilder(dx_arr[period - 1:], period)
+        adx = adx_series[-1] / period if adx_series else 25.0
+
+        plus_di = plus_di_arr[-1]
+        minus_di = minus_di_arr[-1]
+
+        res = (float(adx), float(plus_di), float(minus_di))
+        self._cache_adx = res
+        return res
 
     def detect_market_regime(self, adx_threshold: float = 25.0) -> str:
         """Detect market regime: TRENDING_UP, TRENDING_DOWN, RANGING, CHOPPY (US-1.5)"""
@@ -389,6 +459,8 @@ class TechnicalIndicators:
             return "RANGING"
 
     def calculate_confidence_score(self) -> float:
+        if self._cache_confidence is not None:
+            return self._cache_confidence
         """Calculate entry confidence score 0-100 (US-3.2, calibrated).
 
         Calibrated against trade attribution: TRENDING_UP entries win more,
@@ -437,7 +509,9 @@ class TechnicalIndicators:
         }
         score += regime_bonus.get(regime, 0)
 
-        return min(100.0, max(0.0, score))
+        val = min(100.0, max(0.0, score))
+        self._cache_confidence = val
+        return val
 
     def get_stats(self) -> dict:
         """Get current indicator statistics"""
