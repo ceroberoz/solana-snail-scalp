@@ -2,7 +2,31 @@
 
 All notable changes to the Solana Snail Scalp Bot project.
 
+## [2.1.0] - 2026-11-23
+
+### Added
+- **Profiles**: `--profile {default,balanced,aggressive}` plus `--aggressive` shorthand. Each profile tunes entries, exits, sizing, risk limits and regime handling.
+- **`--fast`**: skip per-candle delays in simulation for rapid iteration.
+- **`--dashboard`**: monitoring view combining portfolio state, trade attribution by regime/confidence, and last backtest.
+- **Trade attribution logging**: every closed trade is appended to `data/trade_attribution.csv` with entry regime and confidence; `scripts/analyze_trades.py` summarizes by regime/confidence.
+- **Confidence gating**: `use_confidence_gate` / `min_confidence_score` config to skip low-confidence entries.
+- **Trending-down entry filter**: `skip_trending_down_entries` skips long entries in `TRENDING_DOWN` regimes (configurable per profile).
+- **Deterministic backtests**: `BacktestEngine` now accepts a `seed` (default 42) and uses an isolated portfolio state file for reproducible results.
+- **ATR uses true high/low**: `TechnicalIndicators.add_price`/`add_ohlcv` accept high/low; `calculate_atr` uses them when available, falling back to close-only.
+
+### Changed
+- Confidence score recalibrated: regime-weighted (TRENDING_UP +12, RANGING 0, TRENDING_DOWN -8, CHOPPY -15); RSI/volume/BB bonuses re-banded to avoid over-rewarding extreme oversold/high-volume setups.
+- Trading window checks consistently use UTC.
+- Config keys aligned between `StrategyConfig`, `Trader`, `CLI`, screening bot, backtest engine, and real-data fetcher.
+
+### Fixed
+- `Trader.check_entry` overwrote the detected regime with `UNKNOWN` (trending-down filter branch).
+- CLI/config mismatches (`dca_allocation`, `stop_loss_percent`) that broke `--simulate`, `--backtest`, `--real-data`.
+- `regime_size_multiplier` was `None` at runtime.
+- Backtest/portfolio state leakage across runs.
+
 ## [2.0.0] - 2026-02-26
+ - 2026-02-26
 
 ### Sprint 5-6: Intelligence Layer
 

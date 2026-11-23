@@ -1,6 +1,6 @@
 [project]
 name = "solana-snail-scalp"
-version = "1.0.0"
+version = "2.1.0"
 description = "A conservative scalping strategy for small-capital trading on Solana"
 readme = "README.md"
 requires-python = ">=3.10"

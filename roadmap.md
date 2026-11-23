@@ -1,9 +1,21 @@
 # Solana Snail Scalp Bot - Development Roadmap
 
-**Version:** 2.0  
-**Last Updated:** 2026-02-26  
+**Version:** 2.1  
+**Last Updated:** 2026-11-23  
 **Methodology:** Scrum/Agile  
 **Sprint Duration:** 2 weeks  
+
+---
+
+## 🆕 Recent Improvements (v2.1)
+
+- Config key alignment; CLI modes (`--simulate`, `--backtest`, `--real-data`, `--multi`) now runnable.
+- Risk/strategy profiles: `default`, `balanced`, `aggressive` (`--profile`).
+- `--fast` simulation flag; `--dashboard` monitoring view.
+- Trending-down entry filter for bull/bear handling.
+- Trade attribution logging (`data/trade_attribution.csv`) + `scripts/analyze_trades.py`.
+- ATR uses true high/low when OHLC available; deterministic backtests (seed).
+- Confidence score recalibrated (regime-weighted).
 
 ---
 

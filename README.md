@@ -32,6 +32,9 @@ uv run python -m snail_scalp --backtest --days 30
 | `--backtest` | Test strategy historically | Win rate, max drawdown, Sharpe ratio |
 | `--multi` | Multi-token trading mode | Portfolio tracking across 3 positions |
 | `--simulate` | Single-token simulation | Price feed + indicator values |
+| `--dashboard` | Monitoring dashboard | Portfolio, attribution, last backtest |
+| `--profile` | Risk/strategy profile | default, balanced, aggressive |
+| `--fast` | Fast simulation | Skip per-candle delays |
 
 ## Common Usage Examples
 
@@ -107,6 +110,30 @@ Sharpe Ratio: 1.68
 
 Report saved to: data/backtest_report.json
 ```
+
+## Profiles
+
+Choose a profile with `--profile` (or `--aggressive` shorthand):
+
+| Profile | Entries | Sizing | Risk | Notes |
+|---------|---------|--------|------|-------|
+| `default` | RSI 20-40 | $3 base, 0.5-1.5x | $1.50 daily loss, 2 consecutive losses | Conservative baseline |
+| `balanced` | RSI 18-42 | $4 base, 0.6-1.75x | $2.00 daily loss, 4 consecutive losses | Middle ground |
+| `aggressive` | RSI 15-45 | $5 base, 0.75-2.0x | $3.00 daily loss, 5 consecutive losses | Higher throughput |
+
+```bash
+uv run python -m snail_scalp --backtest --days 30 --profile aggressive
+uv run python -m snail_scalp --simulate --speed 1000 --profile balanced --fast
+```
+
+## Monitoring
+
+```bash
+uv run python -m snail_scalp --dashboard
+python scripts/analyze_trades.py
+```
+
+The dashboard reads `data/trade_attribution.csv` (regime + confidence per trade) and the last backtest report.
 
 ## Key Features
 
