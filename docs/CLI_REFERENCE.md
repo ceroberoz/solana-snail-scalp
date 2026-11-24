@@ -121,7 +121,7 @@ Trade multiple tokens simultaneously in simulation mode.
 uv run python -m snail_scalp --multi
 ```
 
-> **Note:** Multi-token live execution is not supported. Real live trading currently executes on the single-token SOL/USDC pair only (`uv run python -m snail_scalp --capital 20`). Passing `--multi --live` will exit with an informative error.
+> **Note:** Multi-token live execution is not supported. Real live trading currently executes on the single-token SOL/USDC pair only (`uv run python -m snail_scalp --capital 20`). Passing `--multi --live` exits with code `1` after an informative error.
 
 **Output:**
 ```

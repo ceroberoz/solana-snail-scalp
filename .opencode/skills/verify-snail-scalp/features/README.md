@@ -18,7 +18,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Use `--offline` for screening. Do not query DexScreener or CoinGecko during verification.
 - Do not run the bare CLI (live mode) or pass a wallet.
 - Bound long-lived modes with `--interrupt --timeout 8`.
-- Assert output strings and side-effect files, not exit codes.
+- Assert output strings, side-effect files, and the exit code named in the feature file.
 
 ## Proof and skip reporting
 

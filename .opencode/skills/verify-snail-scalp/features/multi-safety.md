@@ -31,6 +31,6 @@ Preconditions:
 ## Gotchas
 
 - The multi-token loop never exits by itself. Without `--interrupt`, the helper kills it after the timeout and the shutdown line is missing.
-- `--multi --live` currently exits `0` despite the refusal because `main()`'s return value is discarded. Assert the refusal text, never the exit code.
+- `--multi --live` exits `1` after the refusal. Assert both the refusal text and the exit code.
 - Outside 09:00–11:00 UTC the loop prints `Outside trading window` and does not trade. That is expected; do not wait for an `[ENTRY]` line.
 - Never add a wallet key to make this drive "more realistic". The gate must be proven with no wallet present.

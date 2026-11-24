@@ -318,13 +318,13 @@ def run_backtest(args):
     print(f"Days: {args.days}")
     print("="*70)
 
-    result = run_backtest(
+    run_backtest(
         capital=args.capital,
         days=args.days,
         save=True
     )
 
-    return 0 if result.total_return_pct > 0 else 1
+    return 0
 
 
 def run_multi_token(args):

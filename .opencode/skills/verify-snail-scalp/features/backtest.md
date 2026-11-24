@@ -30,7 +30,7 @@ Preconditions:
 
 ## Gotchas
 
-- Negative returns are a valid result. The CLI discards `main()`'s return value, so the process still exits `0`; assert metrics and the report, not the exit code.
+- Negative returns are a valid result. A completed backtest exits `0`; assert metrics and the report.
 - The engine seeds `random` with 42, so the same flags and fixture should reproduce the same trade count. Do not assert a specific PnL across code changes to the strategy.
 - The hidden state file `data/.backtest_portfolio_42.json` is internal scratch. Do not use it as proof; read `backtest_report.json`.
 - Keep the backtest and dashboard drives in one workdir. A fresh workdir has no report and the dashboard correctly reports no last backtest.

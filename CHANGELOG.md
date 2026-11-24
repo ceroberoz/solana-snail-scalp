@@ -2,6 +2,11 @@
 
 All notable changes to the Solana Snail Scalp Bot project.
 
+## [Unreleased]
+
+### Fixed
+- **Honest CLI exit codes**: `python -m snail_scalp` now returns `main()`'s exit code. `--multi --live` exits `1` after the refusal, and a completed backtest exits `0` even when the strategy loses money.
+
 ## [2.3.0] - 2026-11-23
 
 ### Added

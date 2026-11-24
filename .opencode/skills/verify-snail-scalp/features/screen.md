@@ -33,4 +33,4 @@ Preconditions:
 - Plain `--screen` calls DexScreener. It is a live, non-deterministic path and is intentionally not verified here; report it as not covered rather than claiming it passed.
 - A `--min-liquidity` value above every token's liquidity yields an empty watchlist. That is a valid result; assert the file and banner, not a minimum token count.
 - `generated_at` in the watchlist changes each run. Never assert its value.
-- The CLI exits `0` even when a mode fails to do useful work. Assert the banner strings.
+- A completed offline screen exits `0`. Assert the banner strings and the exported file.

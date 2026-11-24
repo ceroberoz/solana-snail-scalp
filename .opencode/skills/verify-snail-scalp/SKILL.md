@@ -67,7 +67,7 @@ Stable handles are literal stdout strings, not line numbers. Every feature file 
 - Use `--screen --offline` only. Plain `--screen` queries DexScreener; `--real-data` queries CoinGecko. Both are live network paths and are outside this verification surface.
 - Use the seeded `sample_price_data.csv` and the default 09:00–11:00 UTC window for `--simulate --fast`. See Gotchas for why widening the window makes the run take minutes.
 - Bound the multi-token simulation with `--interrupt --timeout 8`. It is an intentional 24/7 loop and does not exit on its own.
-- Assert observable output text and the side-effect files. Do not assert exit codes; see Gotchas.
+- Assert observable output text, the side-effect files, and the exit code named in the feature file.
 
 ## Evidence
 
@@ -106,5 +106,5 @@ Read [features/README.md](./features/README.md), then the file for the feature u
 - `uv` is not installed here. The canonical `uv run python -m snail_scalp ...` command was not executed.
 - The available interpreter is `/usr/bin/python3` (3.9.6). `pyproject.toml` requires Python >=3.10. All local proof uses the stand-in site-packages path above, which supplies `numpy` and `aiohttp`. Treat results as a stand-in, not a verified production install.
 - No funded wallet was used. Live swap execution, Jupiter network calls, and CoinGecko/DexScreener live fetches are not covered by this skill.
-- The CLI discards `main()`'s return value (`__main__.py` calls `main()` without `sys.exit`), so all modes currently exit `0`, including the `--multi --live` refusal. Assert output text, not exit codes.
+- `--multi --live` exits `1` after printing the refusal. `--help` and a completed backtest exit `0`. Assert the code named in the feature file.
 - `--fast` only sets `skip_sleep` while outside the 09:00–11:00 UTC window; in-window candles each sleep up to 0.5s. Keep the default window when using the 576-row seed log.
