@@ -11,11 +11,31 @@ unsigned transaction is written to `data/pending_swap.json` for external signing
 import aiohttp
 import base64
 import json
+import math
 import os
+from decimal import Decimal
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TypedDict
 
 from snail_scalp.config import api_config
+
+
+class SwapResult(TypedDict, total=False):
+    """Result of a swap attempt. Amounts are base units unless suffixed ``_ui``."""
+
+    status: str
+    input_mint: str
+    output_mint: str
+    in_amount: int
+    out_amount: int
+    in_ui_amount: float
+    out_ui_amount: float
+    price_impact_pct: float
+    signature: str
+    pending_file: str
+    quote: Dict[str, Any]
+    error: str
+    result: Dict[str, Any]
 
 
 class JupiterClient:
@@ -122,28 +142,83 @@ def sign_transaction(tx_b64: str, keypair) -> Optional[str]:
         return None
 
 
+def to_base_units(amount: Any, decimals: int) -> int:
+    """Convert a human amount to integer base units without float drift."""
+    return int(Decimal(str(amount)) * (Decimal(10) ** decimals))
+
+
+def from_base_units(amount: Any, decimals: int) -> float:
+    """Convert integer base units to a human amount without float drift."""
+    return float(Decimal(str(amount)) / (Decimal(10) ** decimals))
+
+
+def _parse_price_impact(quote: Dict[str, Any]) -> float:
+    try:
+        impact = float(quote.get("priceImpactPct", 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+    return impact if math.isfinite(impact) else 0.0
+
+
+def _quote_amount(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 async def swap(input_mint: str, output_mint: str, amount: int, taker: Optional[str] = None,
-               slippage_bps: int = 50) -> Dict[str, Any]:
-    """High-level swap helper: quote -> (sign) -> execute or save pending."""
+               slippage_bps: int = 50, *, input_decimals: int = 6, output_decimals: int = 9,
+               max_price_impact_pct: float = 1.5) -> SwapResult:
+    """High-level swap helper: quote -> (sign) -> execute or save pending.
+
+    ``amount`` is always in input base units. Quote amounts win over the request.
+    """
     client = JupiterClient()
     quote = await client.get_quote(input_mint, output_mint, amount, taker=taker, slippage_bps=slippage_bps)
+
+    price_impact_pct = _parse_price_impact(quote)
+    in_amount = _quote_amount(quote.get("inAmount"), amount)
+    out_amount = _quote_amount(quote.get("outAmount"), 0)
+    result: SwapResult = {
+        "status": "quote",
+        "input_mint": input_mint,
+        "output_mint": output_mint,
+        "in_amount": in_amount,
+        "out_amount": out_amount,
+        "in_ui_amount": from_base_units(in_amount, input_decimals),
+        "out_ui_amount": from_base_units(out_amount, output_decimals),
+        "price_impact_pct": price_impact_pct,
+        "quote": quote,
+    }
+
+    if price_impact_pct > max_price_impact_pct:
+        result["status"] = "price_impact_exceeded"
+        return result
 
     tx_b64 = quote.get("transaction")
     request_id = quote.get("requestId")
 
     if not tx_b64:
         # Quote only
-        return {"status": "quote", "quote": quote}
+        return result
 
     keypair = load_keypair()
     signed = sign_transaction(tx_b64, keypair) if keypair else None
 
     if signed and request_id:
         try:
-            result = await client.execute(signed, request_id)
-            return {"status": "executed", "result": result, "quote": quote}
+            execute_result = await client.execute(signed, request_id)
         except Exception as e:
-            return {"status": "execute_failed", "error": str(e), "quote": quote}
+            result["status"] = "execute_failed"
+            result["error"] = str(e)
+            return result
+        result["status"] = "executed"
+        result["result"] = execute_result
+        signature = execute_result.get("signature")
+        if signature:
+            result["signature"] = signature
+        return result
 
     # No signer available: persist unsigned tx for external signing
     pending = {
@@ -156,4 +231,6 @@ async def swap(input_mint: str, output_mint: str, amount: int, taker: Optional[s
     }
     Path("data").mkdir(parents=True, exist_ok=True)
     Path("data/pending_swap.json").write_text(json.dumps(pending, indent=2))
-    return {"status": "pending_signature", "file": "data/pending_swap.json", "quote": quote}
+    result["status"] = "pending_signature"
+    result["pending_file"] = "data/pending_swap.json"
+    return result

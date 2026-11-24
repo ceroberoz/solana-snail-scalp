@@ -323,7 +323,7 @@ class Trader:
                 status = res.get("status")
                 print(f"   [LIVE] Jupiter result: {status}")
                 if status == "pending_signature":
-                    print(f"   Unsigned tx saved to {res.get('file')} (set SOLANA_PRIVATE_KEY or SOLANA_KEYPAIR_PATH to auto-sign)")
+                    print(f"   Unsigned tx saved to {res.get('pending_file')} (set SOLANA_PRIVATE_KEY or SOLANA_KEYPAIR_PATH to auto-sign)")
                     print("   [LIVE] Entry not confirmed on-chain - aborting position")
                     return False
                 if status != "executed":
@@ -620,7 +620,7 @@ class Trader:
             status = res.get("status")
             print(f"   [LIVE] Swap result: {status}")
             if status == "pending_signature":
-                print(f"   Unsigned tx saved to {res.get('file')}")
+                print(f"   Unsigned tx saved to {res.get('pending_file')}")
             return status == "executed"
         except Exception as e:
             print(f"   [LIVE] Swap error: {e}")
