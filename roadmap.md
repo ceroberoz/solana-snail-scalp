@@ -638,6 +638,48 @@ Story Points: 8
 
 **Sprint Goal:** Live automated trading across 3–5 memecoin positions using USDT with active ATR stops, trailing exits, and circuit breakers.
 
+#### Sprint 9 Execution Plan (Phases A–D)
+
+Recorded 2026-11-24. Execution order is deliberate: Phase A builds the shared swap layer that both user stories depend on.
+
+**Phase A — Shared execution layer (do first; unblocks both stories)**
+
+| # | Change | File | Done when |
+|---|--------|------|-----------|
+| A1 | Generalize Jupiter helper: arbitrary mint pairs, dynamic decimals, quote-derived `inAmount` / `outAmount`, price-impact cap <1.5%, return status + executed amounts | `src/snail_scalp/jupiter.py` | Mocked quote/execute tests pass for USDT→MEME and MEME→USDT |
+| A2 | Config knobs: `slots=3`, `reserve=20%`, slippage 1.2–1.5%, exit poll 3–5s, `stage` = paper or live, priority-fee toggle | `src/snail_scalp/config.py` | Values load per profile; unit test asserts bounds |
+
+**Phase B — US-6.4 Multi-token live engine (13 SP)**
+
+| # | Change | File | Done when |
+|---|--------|------|-----------|
+| B1 | Split execution backend: `simulate=True` → existing loop; `simulate=False` → new `_run_live_loop()`. Replace the `--multi --live` refusal with explicit `--live` + typed confirmation + stage gate | `src/snail_scalp/screening_bot.py`, `src/snail_scalp/cli.py` | `--multi` still simulates; `--multi --live` starts only with stage=live |
+| B2 | 3 slots, equal allocation with 20% reserve; positions carry `mint`, `decimals`, `entry_signature` | `src/snail_scalp/portfolio_manager.py` | 3 concurrent positions; 4th rejected |
+| B3 | Live entries: size from slot USDT (6 decimals) → Jupiter quote + impact check → open position only if `status == executed` | `src/snail_scalp/screening_bot.py` | Failed/unconfirmed swaps leave state untouched |
+| B4 | Continuous rotation: re-screen immediately on close, refill vacated slot without restart | `src/snail_scalp/screening_bot.py`, `src/snail_scalp/multi_token_feed.py` | Slot refills within one screen cycle |
+
+**Phase C — US-6.5 Loss-prevention wiring (8 SP)**
+
+| # | Change | File | Done when |
+|---|--------|------|-----------|
+| C1 | Per-position live prices at 3–5s (replacing `_simulate_price` in live path), fed into indicators/regime/risk | `src/snail_scalp/screening_bot.py`, `src/snail_scalp/multi_token_feed.py` | Stop triggers within 3–5s of price breach in replay test |
+| C2 | On-chain exits for ATR stop, breakeven, trailing, daily-loss and consecutive-loss halts; dynamic priority fees; `[LIVE][CRITICAL]` on failure with state reconciliation | `src/snail_scalp/screening_bot.py` | Every risk rule produces a MEME→USDT swap; no false "closed" bookkeeping |
+| C3 | Scale-outs: TP1 50% close, TP2 final close, trailing runner | `src/snail_scalp/screening_bot.py` | Partial closes sell proportional on-chain amount |
+
+**Phase D — Rollout, tests, docs**
+
+| # | Change | Done when |
+|---|--------|-----------|
+| D1 | Stage 1: real DexScreener ticks, log intended swaps, no signing. Stage 2: $20–$50 live behind human approval | Paper run reconciles PnL; live requires explicit go |
+| D2 | Tests: slot allocation, decimal scaling, fail-closed entry/exit, rotation, mock Jupiter integration; adapt DoD ("backtest improvement" → "real-tick paper reconciliation") | >80% coverage; existing suite green |
+| D3 | Update story statuses US-6.4 / US-6.5 → ✅ and Sprint 9 → completed when done; sync `docs/AGENT_OPERATIONS.md`, `docs/INTEGRATION.md`, `docs/CLI_REFERENCE.md`, `README.md`, `CHANGELOG.md` | Docs match code |
+
+**Top risks**
+
+- **State desync** is the main danger: a failed exit swap must never be recorded as closed. Enforce fail-closed writes plus reconciliation before enabling stage 2.
+- **Per-token decimals and amounts** are the main correctness trap: always derive amounts from Jupiter's quote, not from `size_usd × 10^decimals` guesses.
+- **MEV / slippage** on micro-caps: the <1.5% price-impact gate and priority fees are hard requirements, not nice-to-haves.
+
 ---
 
 ### Sprint 10: Production Hardening & Dashboard (Weeks 17-18)
