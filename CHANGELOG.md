@@ -6,6 +6,7 @@ All notable changes to the Solana Snail Scalp Bot project.
 
 ### Fixed
 - **Honest CLI exit codes**: `python -m snail_scalp` now returns `main()`'s exit code. `--multi --live` exits `1` after the refusal, and a completed backtest exits `0` even when the strategy loses money.
+- **Live exits no longer book unconfirmed sells**: `_close_position` and `_partial_close` now sell first and update position state only when Jupiter confirms execution. A failed swap leaves the position open, prints `[LIVE][CRITICAL]`, and retries on the next tick. Scale-out levels are only marked hit after a confirmed partial sell.
 
 ## [2.3.0] - 2026-11-23
 

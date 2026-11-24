@@ -191,7 +191,7 @@ Live mode is activated by disabling simulation (`simulate=False`); the trader ca
 - **Multi-token live trading** is scheduled for Sprint 9 (to execute on the 3–5 screened memecoins concurrently). `--multi --live` currently halts with an explanatory message.
 - **Shorts are simulation-only.** Spot live mode refuses short entries because there is no borrow/margin integration.
 - Long closes size the sell from `size_usd / current_price` with a 0.5% buffer. Partial scale-outs sell their proportional share on-chain.
-- If a close swap fails, the bot still marks the position closed in bookkeeping but prints `[LIVE][CRITICAL]`; verify the wallet manually.
+- If a close swap fails, the position stays open and the exit retries on the next tick; the bot prints `[LIVE][CRITICAL]` and leaves bookkeeping untouched. Verify the wallet manually.
 - `--capital` is the bot's accounting base, not a wallet balance check. Fund the wallet with at least the capital in USDT plus SOL for network gas fees.
 - Live mode is beta. Run it under supervision and start with $20–$50.
 

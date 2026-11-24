@@ -488,13 +488,13 @@ class Trader:
                         actual_portion = min(actual_portion, 1.0)  # Cap at 100%
                         
                         print(f"\n[SCALE-{i+1}] Scale out at +{profit_pct}%")
-                        await self._partial_close(current_price, actual_portion, CloseReason.TP1)
-                        pos.scale_levels_hit[i] = True
-                        
-                        # If this was the last scale level, enable final trailing
-                        if i == len(scale_config) - 1:
-                            pos.tp1_hit = True  # Enable trailing stop logic
-                            print("   Final 25% using trailing stop")
+                        if await self._partial_close(current_price, actual_portion, CloseReason.TP1):
+                            pos.scale_levels_hit[i] = True
+
+                            # If this was the last scale level, enable final trailing
+                            if i == len(scale_config) - 1:
+                                pos.tp1_hit = True  # Enable trailing stop logic
+                                print("   Final 25% using trailing stop")
                         break  # Only one scale per check
         else:
             # Legacy TP1/TP2 logic
@@ -518,8 +518,8 @@ class Trader:
             if current_price >= tp1_price and not pos.tp1_hit:
                 tp1_pct = (tp1_price - entry) / entry * 100
                 print(f"\n[TP1] TP1 HIT at ${current_price:.4f} ({pnl_pct:.2f}%) [Target: ${tp1_price:.4f}, +{tp1_pct:.2f}%]")
-                await self._partial_close(current_price, 0.5, CloseReason.TP1)
-                pos.tp1_hit = True
+                if await self._partial_close(current_price, 0.5, CloseReason.TP1):
+                    pos.tp1_hit = True
 
             if current_price >= tp2_price and pos.tp1_hit:
                 tp2_pct = (tp2_price - entry) / entry * 100
@@ -626,19 +626,20 @@ class Trader:
             print(f"   [LIVE] Swap error: {e}")
             return False
 
-    async def _partial_close(self, price: float, portion: float, reason: CloseReason):
-        """Close portion of position (TP1)"""
+    async def _partial_close(self, price: float, portion: float, reason: CloseReason) -> bool:
+        """Close portion of position (TP1). Returns False when the live sell failed."""
         pos = self.active_position
         size = pos.size_usd * portion
         pnl = (price - pos.entry_price) / pos.entry_price * size
 
-        print(f"   Closing {portion * 100:.0f}% (${size:.2f}) PnL: ${pnl:.2f}")
-
-        # Execute the on-chain sell for this portion before updating bookkeeping.
+        # Sell first. Nothing is booked unless the swap confirms.
         if not self.simulate:
             ok = await self._live_swap_out(size, price, getattr(pos, "side", "long"))
             if not ok:
-                print("   [LIVE][CRITICAL] Partial close swap failed; position left open on-chain. Manual check required.")
+                print("   [LIVE][CRITICAL] Partial close swap failed; position left open. Manual check required.")
+                return False
+
+        print(f"   Closing {portion * 100:.0f}% (${size:.2f}) PnL: ${pnl:.2f}")
 
         # Update position
         pos.size_usd -= size
@@ -648,12 +649,21 @@ class Trader:
         # Record partial trade
         self.risk.record_trade(pnl)
         self.total_pnl += pnl
+        return True
 
     async def _close_position(self, price: float, reason: CloseReason):
-        """Close full position"""
+        """Close full position. The book is only updated after a live sell confirms."""
         pos = self.active_position
         entry = pos.entry_price
         size = pos.size_usd
+
+        # Sell first. A failed sell leaves the tokens in the wallet, so the
+        # position stays open and the exit retries on the next tick.
+        if not self.simulate:
+            ok = await self._live_swap_out(size, price, getattr(pos, "side", "long"))
+            if not ok:
+                print("   [LIVE][CRITICAL] Close swap failed; position left open. Manual check required.")
+                return
 
         # Calculate remaining PnL
         if getattr(pos, "side", "long") == "short":
@@ -683,12 +693,6 @@ class Trader:
         self.total_pnl += total_pnl
         self.trade_history.append(pos)
         self._save_history()
-
-        # Live swap back (best-effort; warn loudly on failure)
-        if not self.simulate:
-            ok = await self._live_swap_out(size, price, getattr(pos, "side", "long"))
-            if not ok:
-                print("   [LIVE][CRITICAL] Close swap failed; tokens may still be in the wallet. Manual check required.")
 
         # Append to trade attribution log
         try:
