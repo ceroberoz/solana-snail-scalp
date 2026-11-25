@@ -1,7 +1,7 @@
 # Solana Snail Scalp Bot - Development Roadmap
 
 **Version:** 2.3  
-**Last Updated:** 2026-11-23  
+**Last Updated:** 2026-11-24  
 **Methodology:** Scrum/Agile  
 **Sprint Duration:** 2 weeks  
 
@@ -26,7 +26,7 @@
   - Trailing stops, breakeven stop after TP1, time-based exit, and partial profit scale-outs.
   - Portfolio correlation tracker and daily loss circuit breakers.
 - **Live Trading Baseline:**
-  - Integrated Jupiter Swap API v2 for single-pair SOL/USDC live swaps with `solders` keypair signing.
+  - Integrated Jupiter Swap API v2 for single-pair USDT/SOL live swaps with `solders` keypair signing.
   - Guarded `--multi --live` in CLI to prevent unintended execution until multi-token live engine is ready.
 
 ---
@@ -61,15 +61,15 @@
 | Time-Based Exit (Max 120m hold) | ✅ Done | Tested & operational (US-2.5) |
 | Market Regime Detection (ADX + Trends) | ✅ Done | Tested & operational (US-1.5) |
 | Dynamic Sizing & Correlation Management | ✅ Done | Tested & operational (US-3.2, US-3.3) |
-| Single-Pair Live Execution (Jupiter v2) | ✅ Done | Tested on SOL/USDC live swaps |
+| Single-Pair Live Execution (Jupiter v2) | ✅ Done | Tested on live swaps; quote token now defaults to USDT |
 
 ### Architectural Gaps Against Target Design
 | Gap | Severity | Current Codebase State | Target Requirement |
 |-----|----------|------------------------|--------------------|
-| **1. Dynamic Memecoin Scanner** | 🔴 High | Uses static mock snapshot (`top10_solana_coins.json`) | Live DexScreener/Birdeye API scanning for top 3–5 tokens |
-| **2. Base Quote Currency** | 🟡 Medium | Hardcoded to USDC (`EPjFWdd5...`) | Solana USDT (`Es9vMFrza...`) with dynamic routing |
+| **1. Dynamic Memecoin Scanner** | 🟡 Medium | Live DexScreener discovery and ranking exist (`token_screener.py`, `multi_token_feed.py`); rotation into trading slots is missing | Live DexScreener/Birdeye API scanning for top 3–5 tokens |
+| **2. Base Quote Currency** | 🟢 Low | USDT is the default `TOKEN_IN`; USDC only when overridden | Solana USDT (`Es9vMFrza...`) with dynamic routing |
 | **3. Multi-Token Live Swaps** | 🔴 High | Multi-token bot is simulated (`_simulate_price`) | Live on-chain swaps across 3–5 concurrent positions |
-| **4. Memecoin Safety Gates** | 🔴 High | None | Honeypot, revoked freeze/mint authority, min liquidity checks |
+| **4. Memecoin Safety Gates** | 🔴 High | Liquidity gate and Jupiter price-impact cap exist; no authority or honeypot checks | Honeypot, revoked freeze/mint authority, min liquidity checks |
 
 ---
 
@@ -410,7 +410,7 @@ Story Points: 13
 #### User Stories
 
 **US-5.1: Jupiter DEX Integration**
-**Status:** 🚧 In Progress (Single-Pair SOL/USDC Complete; Multi-token in Epic 6)
+**Status:** 🚧 In Progress (Single-Pair USDT/SOL Complete; Multi-token in Epic 6)
 ```
 As a trader
 I want the bot to execute trades on Jupiter
@@ -420,7 +420,7 @@ Acceptance Criteria:
 - Jupiter API integration (v2 Swap API quote + execute)
 - Transaction signing (solders / local keypair)
 - Slippage protection (<0.8%)
-- Single-pair SOL/USDC live verification
+- Single-pair USDT/SOL live verification
 
 Story Points: 13
 ```
@@ -483,7 +483,7 @@ Story Points: 21
 #### User Stories
 
 **US-6.1: Live Dynamic Memecoin Screener (DexScreener/Birdeye API)**
-**Status:** ✅ Done
+**Status:** 🚧 Partial
 ```
 As a trader
 I want the bot to dynamically scan trending Solana memecoins live
@@ -498,8 +498,11 @@ Acceptance Criteria:
 Story Points: 8
 ```
 
+**Shipped:** live DexScreener discovery (`token_screener.py`), hype scoring, and ranking (`multi_token_feed.py`).
+**Missing:** the scalping filter uses a 0.05 volume-to-MCap floor, not the 0.5 in the AC. No rate-limit backoff or retry policy in `real_data_fetcher.py`. Rotation of a slot after a close lands with Phase B4.
+
 **US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity Protection)**
-**Status:** ✅ Done
+**Status:** 🚧 Partial
 ```
 As a trader
 I want every candidate token to pass safety & liquidity checks before trading
@@ -514,8 +517,11 @@ Acceptance Criteria:
 Story Points: 8
 ```
 
+**Shipped:** the $20,000 liquidity gate (`token_screener.py`) and the 1.5% Jupiter price-impact cap (`jupiter.py`).
+**Missing:** freeze authority, mint authority, and honeypot checks. No RPC authority read exists in `src/`.
+
 **US-6.3: Solana USDT Base Quote & Dynamic Routing**
-**Status:** ✅ Done
+**Status:** 🚧 Partial
 ```
 As a trader
 I want the bot to use USDT on Solana as the base quote currency
@@ -529,6 +535,9 @@ Acceptance Criteria:
 
 Story Points: 8
 ```
+
+**Shipped:** USDT is the default `TOKEN_IN` with 6-decimal scaling (`config.py`). `jupiter.py` accepts arbitrary mint pairs and ships `to_base_units` / `from_base_units`. Jupiter routes multi-hop itself; the swap layer does not restrict the path.
+**Missing:** RPC balance reads for USDT and held memecoins, so `--capital` remains an accounting base. The decimal helpers have no caller yet.
 
 **US-6.4: Multi-Token Live Portfolio Execution Engine**
 **Status:** 📝 Todo
@@ -615,16 +624,18 @@ Story Points: 8
 
 ---
 
-### Sprint 8: Memecoin Discovery, Safety Gates & USDT Quote (Completed ✅)
+### Sprint 8: Memecoin Discovery, Safety Gates & USDT Quote (Partially Complete 🚧)
 **Theme:** Real Memecoin Pipeline & Safety Filters
 | User Story | Points | Priority | Status |
 |------------|--------|----------|--------|
-| US-6.1: Live Dynamic Memecoin Screener (DexScreener API) | 8 | 🔴 Critical | ✅ Done |
-| US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity) | 8 | 🔴 Critical | ✅ Done |
-| US-6.3: Solana USDT Base Quote & Dynamic Routing | 8 | 🔴 Critical | ✅ Done |
+| US-6.1: Live Dynamic Memecoin Screener (DexScreener API) | 8 | 🔴 Critical | 🚧 Partial |
+| US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity) | 8 | 🔴 Critical | 🚧 Partial |
+| US-6.3: Solana USDT Base Quote & Dynamic Routing | 8 | 🔴 Critical | 🚧 Partial |
 | **Total** | **24** | | |
 
 **Sprint Goal:** Automatically scan, safety-check, and rank 3–5 real Solana memecoins quote-routed to USDT.
+
+**Outstanding before Sprint 8 can be called done:** freeze/mint authority and honeypot checks (US-6.2), RPC balance reads (US-6.3), rate-limit backoff and the volume-to-MCap threshold decision (US-6.1).
 
 ---
 
@@ -643,6 +654,8 @@ Story Points: 8
 Recorded 2026-11-24. Execution order is deliberate: Phase A builds the shared swap layer that both user stories depend on.
 
 **Phase A — Shared execution layer (do first; unblocks both stories)**
+
+Status: A1 ✅ done (`a713a75`, covered by `tests/test_jupiter_swap.py`). A2 not started.
 
 | # | Change | File | Done when |
 |---|--------|------|-----------|
@@ -705,9 +718,9 @@ Recorded 2026-11-24. Execution order is deliberate: Phase A builds the shared sw
 | 4 | US-5.3 | Priority Fees & MEV Protection | Live Trading | 13 | 🟡 Medium | 📝 Todo |
 | 5 | US-4.1 | Order Book Imbalance Filter | Data Intelligence | 13 | 🟢 Low | 📝 Todo |
 | 6 | US-5.4 | Monitoring Dashboard | Live Trading | 21 | 🔵 Nice to Have | 📝 Todo |
-| - | US-6.1 | Live Dynamic Memecoin Screener | Memecoin Scalper | 8 | - | ✅ Done |
-| - | US-6.2 | Memecoin Safety Gate (Honeypot/Freeze) | Memecoin Scalper | 8 | - | ✅ Done |
-| - | US-6.3 | Solana USDT Base Quote & Routing | Memecoin Scalper | 8 | - | ✅ Done |
+| - | US-6.1 | Live Dynamic Memecoin Screener | Memecoin Scalper | 8 | - | 🚧 Partial |
+| - | US-6.2 | Memecoin Safety Gate (Honeypot/Freeze) | Memecoin Scalper | 8 | - | 🚧 Partial |
+| - | US-6.3 | Solana USDT Base Quote & Routing | Memecoin Scalper | 8 | - | 🚧 Partial |
 | 6 | US-5.2 | Wallet Management & Balance Guard | Live Trading | 8 | 🟠 High | 📝 Todo |
 | 7 | US-5.3 | Priority Fees & MEV Protection | Live Trading | 13 | 🟡 Medium | 📝 Todo |
 | 8 | US-4.1 | Order Book Imbalance Filter | Data Intelligence | 13 | 🟢 Low | 📝 Todo |

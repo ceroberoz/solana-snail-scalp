@@ -335,7 +335,7 @@ def run_multi_token(args):
     if getattr(args, "live", False):
         print("\n[NOT SUPPORTED] Multi-token live trading is not implemented.")
         print("Multi-token mode ranks tokens and simulates them; it does not place real swaps.")
-        print("Real live execution currently supports the single-token SOL/USDC path only.")
+        print("Real live execution currently supports the single-token USDT/SOL path only.")
         print("\nRun multi-token simulation without --live, or use:")
         print("  uv run python -m snail_scalp --capital 20 --profile balanced --window-start 0 --window-end 24")
         return 1

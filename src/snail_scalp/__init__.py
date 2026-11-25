@@ -1,6 +1,6 @@
 """Solana Snail Scalp Bot - A conservative scalping strategy for Solana."""
 
-__version__ = "1.2.0"
+__version__ = "2.3.0"
 __author__ = "Solana Snail Scalp Bot"
 
 from snail_scalp.config import (

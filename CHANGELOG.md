@@ -4,6 +4,9 @@ All notable changes to the Solana Snail Scalp Bot project.
 
 ## [Unreleased]
 
+### Changed
+- **Status reconciliation**: the roadmap now marks US-6.1, US-6.2, and US-6.3 as partial, lists what shipped and what is missing per story, and records Phase A1 as done. Docs and the `--multi --live` refusal now say USDT/SOL instead of SOL/USDC. The package version is `2.3.0` in `pyproject.toml` and `__init__.py`.
+
 ### Fixed
 - **Honest CLI exit codes**: `python -m snail_scalp` now returns `main()`'s exit code. `--multi --live` exits `1` after the refusal, and a completed backtest exits `0` even when the strategy loses money.
 - **Live exits no longer book unconfirmed sells**: `_close_position` and `_partial_close` now sell first and update position state only when Jupiter confirms execution. A failed swap leaves the position open, prints `[LIVE][CRITICAL]`, and retries on the next tick. Scale-out levels are only marked hit after a confirmed partial sell.
@@ -14,9 +17,10 @@ All notable changes to the Solana Snail Scalp Bot project.
 - **Live Solana Memecoin Discovery (US-6.1)**:
   - Upgraded screener to query DexScreener's public API (`/token-profiles/latest/v1` and `/dex/search?q=solana`) with batch token lookup (`/dex/tokens/{addrs}`).
   - Automatically surfaces trending, boosted, and high-volume Solana memecoins in real time with real mint addresses, live prices, and 24h volume.
-- **Rug & Liquidity Safety Gate (US-6.2)**:
+- **Liquidity Gate (US-6.2, partial)**:
   - Implemented configurable `--min-liquidity` threshold (default `$20,000` USD) that eliminates dead pools, drained liquidity rugs, and illiquid traps.
   - Added resilient offline fallback to local cache (`data/live_screened_tokens.json` or `top10_solana_coins.json`) via `--offline`.
+  - Not implemented: freeze authority, mint authority, and honeypot checks.
 - **Solana USDT Base Currency (US-6.3)**:
   - Switched default `TOKEN_IN` to Solana USDT (`Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`) with 6-decimal scaling (`BASE_TOKEN_DECIMALS = 6`).
   - Added constants for `USDT_MINT`, `USDC_MINT`, and `SOL_MINT`.

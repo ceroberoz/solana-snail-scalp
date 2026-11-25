@@ -23,7 +23,7 @@ Never change strategy code, config, profiles, capital, or loss limits.
 NON-NEGOTIABLES
 - Validate before live: run a 30-day backtest, a 7-day real-data simulation, and a simulation smoke test. Report results and wait for my explicit "go live".
 - Never print, log, or transmit SOLANA_PRIVATE_KEY or keypair file contents.
-- Never run `--multi --live` (multi-token live trading is not implemented; live trading is SOL/USDC only).
+- Never run `--multi --live` (multi-token live trading is not implemented; live trading is USDT/SOL only).
 - Never run `--reset`, `--aggressive`, or enable shorts.
 - Never restart after a stop condition without my approval.
 - Never trade manually or delete `data/`.
@@ -52,7 +52,7 @@ MONITOR every 15 minutes
 STOP + ESCALATE immediately (do not auto-restart) if any:
 - Daily loss >= $2.00 (balanced) or 4 consecutive losses.
 - 3+ consecutive Jupiter errors, or any [LIVE][CRITICAL] line.
-- Wallet SOL < 0.02 or USDC balance below $<CAP>.
+- Wallet SOL < 0.02 or USDT balance below $<CAP>.
 - 2 crashes in 10 minutes, or no new price line for 30 minutes.
 - Drawdown > 10%, duplicate instance, or unexpected pending_signature.
 
@@ -112,9 +112,9 @@ touch data/TRADING_HALTED
 
 ## Why these guardrails
 
-- Live execution currently swaps **USDC ↔ SOL** only; it does not auto-trade screened memecoins.
+- Live execution currently swaps **USDT ↔ SOL** only; it does not auto-trade screened memecoins.
 - Shorts are simulation-only; live short entries are refused.
-- Close/partial-close swaps can fail independently of bookkeeping; `[LIVE][CRITICAL]` means the wallet needs a manual check.
+- A close or partial-close swap can fail. The position then stays open and retries on the next tick; `[LIVE][CRITICAL]` means the wallet needs a manual check.
 - `--capital` is an accounting base, not a wallet balance check.
 
 See [Integration](INTEGRATION.md) for Jupiter setup and [CLI Reference](CLI_REFERENCE.md) for flags.

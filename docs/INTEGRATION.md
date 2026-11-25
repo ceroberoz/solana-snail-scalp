@@ -188,7 +188,7 @@ Live mode is activated by disabling simulation (`simulate=False`); the trader ca
 ### Known live-mode limits
 
 - Live execution currently swaps **USDT ↔ SOL** (or USDC via `TOKEN_IN`) using `TOKEN_IN` / `TOKEN_OUT`. It routes through Jupiter v2 quotes.
-- **Multi-token live trading** is scheduled for Sprint 9 (to execute on the 3–5 screened memecoins concurrently). `--multi --live` currently halts with an explanatory message.
+- **Multi-token live trading** is scheduled for Sprint 9 (to execute on the 3–5 screened memecoins concurrently). `--multi --live` exits `1` with an explanatory message.
 - **Shorts are simulation-only.** Spot live mode refuses short entries because there is no borrow/margin integration.
 - Long closes size the sell from `size_usd / current_price` with a 0.5% buffer. Partial scale-outs sell their proportional share on-chain.
 - If a close swap fails, the position stays open and the exit retries on the next tick; the bot prints `[LIVE][CRITICAL]` and leaves bookkeeping untouched. Verify the wallet manually.

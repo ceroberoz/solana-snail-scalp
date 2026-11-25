@@ -24,7 +24,7 @@ Preconditions:
 
 - **Enter multi simulation.** Execute `verify_cli.py ... --label multi-sim --timeout 8 --interrupt -- --multi --capital 20`. Stdout contains `MULTI-TOKEN TRADING MODE`, `Mode: SIMULATION`, `Initial Capital: $20.00`, `Max Positions: 3`, and `[STARTING TRADING LOOP]`.
 - **Stop it cleanly.** The helper sends SIGINT at the timeout. Stdout contains `Stopped by user.` and contains no `[LIVE]` line. The recorded exit is `0`.
-- **Check the live refusal.** In the same workdir run `verify_cli.py ... --label multi-live-guard --timeout 20 -- --multi --live`. Stdout contains `[NOT SUPPORTED] Multi-token live trading is not implemented.` and `Real live execution currently supports the single-token SOL/USDC path only.`
+- **Check the live refusal.** In the same workdir run `verify_cli.py ... --label multi-live-guard --timeout 20 -- --multi --live`. Stdout contains `[NOT SUPPORTED] Multi-token live trading is not implemented.` and `Real live execution currently supports the single-token USDT/SOL path only.`
 - **Confirm no execution side effects.** Confirm `$INIT_DIR` contains no `pending_swap.json` and no `portfolio_state.json` after both drives.
 - **Proof.** Keep `multi-sim.stdout.txt` and `multi-live-guard.stdout.txt` together; the first shows bounded simulation, the second shows the refusal.
 
