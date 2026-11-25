@@ -28,6 +28,7 @@ from snail_scalp.config import (
     strategy_config,
     execution_config,
     apply_profile,
+    Stage,
     SIMULATION_CONFIG,
     PAIR_ADDRESS,
 )
@@ -168,6 +169,20 @@ Commands:
         "--live",
         action="store_true",
         help="Enable live trading (default is simulation)",
+    )
+
+    parser.add_argument(
+        "--stage",
+        type=str,
+        default="paper",
+        choices=["paper", "live"],
+        help="Execution stage: paper (simulated fills) or live (real on-chain orders)",
+    )
+
+    parser.add_argument(
+        "--confirm-live",
+        action="store_true",
+        help="Bypass interactive typed confirmation for live multi-token trading",
     )
 
     # Common options
@@ -332,37 +347,66 @@ def run_multi_token(args):
     """Run multi-token trading"""
     from snail_scalp.screening_bot import ScreeningTradingBot
     from snail_scalp.token_screener import RiskLevel
+    from snail_scalp.config import execution_config, Stage
 
-    if getattr(args, "live", False):
-        print("\n[NOT SUPPORTED] Multi-token live trading is not implemented.")
-        print("Multi-token mode ranks tokens and simulates them; it does not place real swaps.")
-        print("Real live execution currently supports the single-token USDT/SOL path only.")
-        print("\nRun multi-token simulation without --live, or use:")
-        print("  uv run python -m snail_scalp --capital 20 --profile balanced --window-start 0 --window-end 24")
-        return 1
+    is_live = getattr(args, "live", False)
+    stage_arg = getattr(args, "stage", "paper").lower()
+    stage = Stage.LIVE if stage_arg == "live" else Stage.PAPER
 
+    if is_live:
+        # Stage gate: multi-token live trading requires explicit stage=live
+        if stage != Stage.LIVE:
+            print("\n[STAGE REFUSAL] Multi-token live execution requires --stage live.")
+            print("Multi-token mode is gated to prevent accidental execution with real capital.")
+            print("To proceed with live capital, pass: --multi --live --stage live")
+            return 1
+
+        # Typed confirmation gate
+        if not getattr(args, "confirm_live", False):
+            print("\n" + "!" * 70)
+            print("WARNING: LIVE MULTI-TOKEN TRADING WILL EXECUTE REAL ON-CHAIN SWAPS")
+            print(f"Deploying ${args.capital:.2f} across up to {execution_config.slots} slots on Solana mainnet.")
+            print("Base quote currency: Solana USDT (Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB)")
+            print(f"Emergency reserve: {execution_config.reserve_pct:.0f}% will be held unallocated.")
+            print("!" * 70)
+            try:
+                confirm = input("Type 'START LIVE TRADING' to confirm: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                confirm = ""
+            if confirm != "START LIVE TRADING":
+                print("\n[ABORTED] Live trading not confirmed. Exiting.")
+                return 1
+
+    mode_str = f"LIVE ({stage.value.upper()})" if is_live else "SIMULATION"
     print("\n" + "="*70)
     print("MULTI-TOKEN TRADING MODE")
     print("="*70)
-    print("Mode: SIMULATION")
+    print(f"Mode:    {mode_str}")
     print(f"Capital: ${args.capital:.2f}")
+    print(f"Slots:   {execution_config.slots}")
+    print(f"Reserve: {execution_config.reserve_pct:.0f}% (${args.capital * execution_config.reserve_pct / 100:.2f})")
+    print(f"Stage:   {stage.value}")
     print("="*70)
 
     bot = ScreeningTradingBot(
         initial_capital=args.capital,
-        max_positions=3,
-        simulate=True,
-        min_hype_score=60.0,
-        max_risk_level=RiskLevel.HIGH,
+        max_positions=execution_config.slots,
+        simulate=not is_live,
+        stage=stage,
+        min_hype_score=args.hype if hasattr(args, "hype") else 60.0,
+        max_risk_level=RiskLevel[args.risk.upper()] if hasattr(args, "risk") else RiskLevel.HIGH,
         trading_hours=(args.window_start, args.window_end),
     )
 
     try:
         asyncio.run(bot.run())
+        return 0
     except KeyboardInterrupt:
-        print("\nStopped by user.")
-
-    return 0
+        print("\nMulti-token trading stopped by user.")
+        return 0
+    except Exception as e:
+        print(f"\n[ERROR] Multi-token trading failed: {e}")
+        return 1
 
 
 def run_real_data_simulation(args):

@@ -13,6 +13,7 @@ from enum import Enum
 
 from snail_scalp.token_screener import TokenMetrics, HypeScore, RiskLevel
 from snail_scalp.trader import Trade, TradeStatus, CloseReason
+from snail_scalp.config import execution_config
 
 
 class PositionStatus(Enum):
@@ -27,6 +28,9 @@ class TokenPosition:
     """Position for a specific token"""
     symbol: str
     address: str
+    mint: str = ""
+    decimals: int = 6
+    entry_signature: Optional[str] = None
     
     # Position details
     entry_price: float = 0.0
@@ -52,11 +56,20 @@ class TokenPosition:
     # Metadata
     hype_score_at_entry: float = 0.0
     risk_level_at_entry: RiskLevel = RiskLevel.MODERATE
+
+    def __post_init__(self):
+        if not self.mint and self.address:
+            self.mint = self.address
+        elif not self.address and self.mint:
+            self.address = self.mint
     
     def to_dict(self) -> Dict:
         return {
             "symbol": self.symbol,
             "address": self.address,
+            "mint": self.mint,
+            "decimals": self.decimals,
+            "entry_signature": self.entry_signature,
             "entry_price": self.entry_price,
             "size_usd": self.size_usd,
             "entry_time": self.entry_time.isoformat() if self.entry_time else None,
@@ -79,6 +92,7 @@ class PortfolioState:
     initial_capital: float = 20.0
     available_capital: float = 20.0
     total_allocated: float = 0.0
+    reserve_pct: float = 20.0
     
     # Performance
     total_realized_pnl: float = 0.0
@@ -110,9 +124,11 @@ class PortfolioState:
         """Check if we can open a new position"""
         if self.open_position_count >= self.max_concurrent_positions:
             return False
-        if self.available_capital < size_usd:
+        # Available capital cannot drop below the emergency reserve
+        reserve_amount = self.initial_capital * (self.reserve_pct / 100.0)
+        if (self.available_capital - size_usd) < (reserve_amount - 1e-6):
             return False
-        if size_usd > self.max_allocation_per_token:
+        if size_usd > (self.max_allocation_per_token + 1e-6):
             return False
         return True
 
@@ -124,10 +140,16 @@ class PortfolioManager:
         self,
         initial_capital: float = 20.0,
         max_positions: int = 3,
+        reserve_pct: Optional[float] = None,
         state_file: str = "data/portfolio_state.json",
         simulate: bool = False,
     ):
         self.initial_capital = initial_capital
+        self.max_positions = max_positions
+        self.reserve_pct = reserve_pct if reserve_pct is not None else execution_config.reserve_pct
+        deployable = initial_capital * (1.0 - (self.reserve_pct / 100.0))
+        equal_slot_size = deployable / max_positions if max_positions > 0 else 0.0
+        self.max_allocation_per_token = max(6.0, equal_slot_size)
         self.state_file = Path(state_file)
         self.simulate = simulate
         
@@ -140,6 +162,9 @@ class PortfolioManager:
         if self.state.initial_capital == 0:
             self.state.initial_capital = initial_capital
             self.state.available_capital = initial_capital
+            self.state.reserve_pct = self.reserve_pct
+            self.state.max_concurrent_positions = max_positions
+            self.state.max_allocation_per_token = self.max_allocation_per_token
     
     def _load_state(self) -> PortfolioState:
         """Load portfolio state from file"""
@@ -162,15 +187,22 @@ class PortfolioManager:
                     available_capital=data.get('available_capital', self.initial_capital),
                     total_realized_pnl=data.get('total_realized_pnl', 0.0),
                     total_unrealized_pnl=data.get('total_unrealized_pnl', 0.0),
+                    reserve_pct=data.get('reserve_pct', self.reserve_pct),
                     positions=positions,
                     closed_positions=closed_positions,
-                    max_concurrent_positions=data.get('max_concurrent_positions', 3),
-                    max_allocation_per_token=data.get('max_allocation_per_token', 6.0),
+                    max_concurrent_positions=data.get('max_concurrent_positions', self.max_positions),
+                    max_allocation_per_token=data.get('max_allocation_per_token', self.max_allocation_per_token),
                 )
             except Exception as e:
                 print(f"[WARN] Could not load portfolio state: {e}")
         
-        return PortfolioState(initial_capital=self.initial_capital, available_capital=self.initial_capital)
+        return PortfolioState(
+            initial_capital=self.initial_capital,
+            available_capital=self.initial_capital,
+            reserve_pct=self.reserve_pct,
+            max_concurrent_positions=self.max_positions,
+            max_allocation_per_token=self.max_allocation_per_token,
+        )
     
     def _save_state(self):
         """Save portfolio state to file"""
@@ -179,6 +211,7 @@ class PortfolioManager:
             "available_capital": self.state.available_capital,
             "total_realized_pnl": self.state.total_realized_pnl,
             "total_unrealized_pnl": self.state.total_unrealized_pnl,
+            "reserve_pct": self.state.reserve_pct,
             "max_concurrent_positions": self.state.max_concurrent_positions,
             "max_allocation_per_token": self.state.max_allocation_per_token,
             "positions": {k: v.to_dict() for k, v in self.state.positions.items()},
@@ -194,7 +227,10 @@ class PortfolioManager:
         """Convert dict to TokenPosition"""
         pos = TokenPosition(
             symbol=data['symbol'],
-            address=data['address'],
+            address=data.get('address', data.get('mint', '')),
+            mint=data.get('mint', data.get('address', '')),
+            decimals=data.get('decimals', 6),
+            entry_signature=data.get('entry_signature'),
             entry_price=data.get('entry_price', 0.0),
             size_usd=data.get('size_usd', 0.0),
             status=PositionStatus(data.get('status', 'pending')),
@@ -226,19 +262,13 @@ class PortfolioManager:
             return pos.status in [PositionStatus.OPEN, PositionStatus.PARTIAL]
         return False
     
-    def calculate_position_size(self, symbol: str, risk_level: RiskLevel) -> float:
-        """Calculate appropriate position size based on risk"""
-        base_size = 3.0  # $3 base
-        
-        # Adjust for risk
-        if risk_level == RiskLevel.EXTREME:
-            return min(base_size * 0.5, self.state.available_capital)
-        elif risk_level == RiskLevel.HIGH:
-            return min(base_size * 0.75, self.state.available_capital)
-        elif risk_level == RiskLevel.MODERATE:
-            return min(base_size, self.state.available_capital)
-        else:  # LOW or MINIMAL
-            return min(base_size, self.state.available_capital)
+    def calculate_position_size(self, symbol: str, risk_level: Optional[RiskLevel] = None) -> float:
+        """Calculate equal slot position size respecting emergency reserve."""
+        deployable = max(0.0, self.initial_capital * (1.0 - (self.reserve_pct / 100.0)))
+        equal_slot_size = deployable / self.state.max_concurrent_positions if self.state.max_concurrent_positions > 0 else 0.0
+        reserve_amount = self.initial_capital * (self.reserve_pct / 100.0)
+        max_available = max(0.0, self.state.available_capital - reserve_amount)
+        return round(min(equal_slot_size, max_available), 2)
     
     def open_position(
         self,
@@ -246,8 +276,11 @@ class PortfolioManager:
         address: str,
         entry_price: float,
         size_usd: float,
-        hype_score: float,
-        risk_level: RiskLevel
+        hype_score: float = 0.0,
+        risk_level: RiskLevel = RiskLevel.MODERATE,
+        mint: Optional[str] = None,
+        decimals: int = 6,
+        entry_signature: Optional[str] = None,
     ) -> bool:
         """Open a new position"""
         if not self.state.can_open_position(size_usd):
@@ -258,7 +291,10 @@ class PortfolioManager:
         
         position = TokenPosition(
             symbol=symbol,
-            address=address,
+            address=address or (mint or ""),
+            mint=mint or address,
+            decimals=decimals,
+            entry_signature=entry_signature,
             entry_price=entry_price,
             size_usd=size_usd,
             entry_time=datetime.now(),
@@ -433,7 +469,10 @@ class PortfolioManager:
         """Reset portfolio state"""
         self.state = PortfolioState(
             initial_capital=self.initial_capital,
-            available_capital=self.initial_capital
+            available_capital=self.initial_capital,
+            reserve_pct=self.reserve_pct,
+            max_concurrent_positions=self.max_positions,
+            max_allocation_per_token=self.max_allocation_per_token,
         )
         if self.state_file.exists():
             self.state_file.unlink()

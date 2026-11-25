@@ -5,6 +5,12 @@ All notable changes to the Solana Snail Scalp Bot project.
 ## [Unreleased]
 
 ### Added
+- **Multi-token live execution engine & slot management (Sprint 9 Phase B1 & B2)**:
+  - Added multi-token live loop `_run_live_loop()` in `ScreeningTradingBot` with dynamic price updating, continuous slot rotation, and live/paper execution.
+  - Added CLI stage gate (`--stage {paper,live}`) and typed confirmation requirement (`Type 'START LIVE TRADING' to confirm` or `--confirm-live`) to safely gate live on-chain operations.
+  - Implemented 3 equal-allocation slots with strict 20% emergency reserve protection in `PortfolioManager` (4th position rejected; allocations breaching reserve blocked).
+  - Enhanced `TokenPosition` to track `mint`, `decimals`, and `entry_signature` with full dictionary serialization round-tripping.
+  - Added test suite `tests/test_multi_token_engine.py` with 8 comprehensive tests covering slot limits, reserve preservation, CLI gate enforcement, and execution dispatching.
 - **On-chain mint and freeze authority verification (US-6.2)**:
   - Added `src/snail_scalp/mint_safety.py` implementing batch Solana RPC (`getMultipleAccounts` with `jsonParsed`) checks for mint authority, freeze authority, and token program.
   - Automatically rejects tokens with active freeze authority, active mint authority, or unsupported token programs (e.g. Token-2022).

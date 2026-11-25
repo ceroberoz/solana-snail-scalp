@@ -665,6 +665,8 @@ Status: A1 ✅ done (`a713a75`, covered by `tests/test_jupiter_swap.py`). A2 ✅
 
 **Phase B — US-6.4 Multi-token live engine (13 SP)**
 
+Status: B1 ✅ done, B2 ✅ done (covered by `tests/test_multi_token_engine.py` and `tests/test_cli_exit_codes.py`). B3 & B4 wired in `screening_bot.py`.
+
 | # | Change | File | Done when |
 |---|--------|------|-----------|
 | B1 | Split execution backend: `simulate=True` → existing loop; `simulate=False` → new `_run_live_loop()`. Replace the `--multi --live` refusal with explicit `--live` + typed confirmation + stage gate | `src/snail_scalp/screening_bot.py`, `src/snail_scalp/cli.py` | `--multi` still simulates; `--multi --live` starts only with stage=live |
