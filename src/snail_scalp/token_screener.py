@@ -16,6 +16,8 @@ from pathlib import Path
 from enum import Enum
 import numpy as np
 
+from snail_scalp.mint_safety import MintSafetyError, fetch_mint_authorities
+
 
 class HypeCategory(Enum):
     EXTREME = "extreme"      # >50% 24h gain - very high risk/reward
@@ -226,6 +228,25 @@ class TokenScreener:
                 holders=0,
                 fdv=float(pair.get("fdv", 0) or 0)
             ))
+
+        # Safety gate: a mint that can be frozen or inflated must never reach the trade list
+        try:
+            authorities = await fetch_mint_authorities([m.address for m in metrics_list])
+        except MintSafetyError as e:
+            print(f"[SAFETY] Authority lookup failed: {e}")
+            print("[SAFETY] Refusing to return candidates without authority checks.")
+            self.tokens = []
+            return []
+
+        checked_metrics: List[TokenMetrics] = []
+        for m in metrics_list:
+            record = authorities.get(m.address)
+            reason = record.rejection_reason() if record else "mint account not found"
+            if reason:
+                print(f"[SAFETY] Reject {m.symbol} ({m.address[:8]}): {reason}")
+                continue
+            checked_metrics.append(m)
+        metrics_list = checked_metrics
 
         if metrics_list:
             self.tokens = metrics_list

@@ -55,9 +55,10 @@ def test_offline_fallback_for_screener():
     """Verify screener gracefully falls back to cached data when offline."""
     screener = TokenScreener()
     with patch("snail_scalp.real_data_fetcher.DexScreenerFetcher.fetch_token_profiles", side_effect=Exception("Network error")):
-        tokens = screener.fetch_live_tokens_sync(min_liquidity=10_000)
-        assert len(tokens) > 0
-        assert any(t.symbol in ["BOOB", "SOL", "BONK", "COPPER"] for t in tokens)
+        with patch("snail_scalp.real_data_fetcher.DexScreenerFetcher.search_solana_pairs", side_effect=Exception("Network error")):
+            tokens = screener.fetch_live_tokens_sync(min_liquidity=10_000)
+            assert len(tokens) > 0
+            assert any(t.symbol in ["BOOB", "SOL", "BONK", "COPPER"] for t in tokens)
 
 
 def test_multi_token_feed_best_scalping_candidates():

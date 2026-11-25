@@ -5,6 +5,12 @@ All notable changes to the Solana Snail Scalp Bot project.
 ## [Unreleased]
 
 ### Added
+- **On-chain mint and freeze authority verification (US-6.2)**:
+  - Added `src/snail_scalp/mint_safety.py` implementing batch Solana RPC (`getMultipleAccounts` with `jsonParsed`) checks for mint authority, freeze authority, and token program.
+  - Automatically rejects tokens with active freeze authority, active mint authority, or unsupported token programs (e.g. Token-2022).
+  - Enforced fail-closed behavior on RPC failure (`MintSafetyError` drops candidate set rather than trading unverified tokens).
+  - Integrated into `TokenScreener.fetch_live_tokens()`.
+  - Added comprehensive test suite in `tests/test_mint_safety.py`.
 - **Execution policy config (Sprint 9 A2)**: new `ExecutionConfig` in `config.py` with `slots`, `reserve_pct`, `slippage_pct`, `exit_poll_seconds`, a `Stage` enum (`paper` or `live`), and a `priority_fee_enabled` toggle. Values load per profile and are validated on construction.
 
 ### Changed

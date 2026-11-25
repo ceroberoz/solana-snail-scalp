@@ -62,6 +62,7 @@
 | Market Regime Detection (ADX + Trends) | ✅ Done | Tested & operational (US-1.5) |
 | Dynamic Sizing & Correlation Management | ✅ Done | Tested & operational (US-3.2, US-3.3) |
 | Single-Pair Live Execution (Jupiter v2) | ✅ Done | Tested on live swaps; quote token now defaults to USDT |
+| On-Chain Mint & Freeze Authority Gate | ✅ Done | Tested & operational via batch RPC `getMultipleAccounts` (US-6.2) |
 
 ### Architectural Gaps Against Target Design
 | Gap | Severity | Current Codebase State | Target Requirement |
@@ -69,7 +70,7 @@
 | **1. Dynamic Memecoin Scanner** | 🟡 Medium | Live DexScreener discovery and ranking exist (`token_screener.py`, `multi_token_feed.py`); rotation into trading slots is missing | Live DexScreener/Birdeye API scanning for top 3–5 tokens |
 | **2. Base Quote Currency** | 🟢 Low | USDT is the default `TOKEN_IN`; USDC only when overridden | Solana USDT (`Es9vMFrza...`) with dynamic routing |
 | **3. Multi-Token Live Swaps** | 🔴 High | Multi-token bot is simulated (`_simulate_price`) | Live on-chain swaps across 3–5 concurrent positions |
-| **4. Memecoin Safety Gates** | 🔴 High | Liquidity gate and Jupiter price-impact cap exist; no authority or honeypot checks | Honeypot, revoked freeze/mint authority, min liquidity checks |
+| **4. Memecoin Safety Gates** | 🟢 Low | $20k liquidity gate, <1.5% price-impact cap, and on-chain freeze & mint authority checks operational | Automated honeypot simulation checks |
 
 ---
 
@@ -502,7 +503,7 @@ Story Points: 8
 **Missing:** the scalping filter uses a 0.05 volume-to-MCap floor, not the 0.5 in the AC. No rate-limit backoff or retry policy in `real_data_fetcher.py`. Rotation of a slot after a close lands with Phase B4.
 
 **US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity Protection)**
-**Status:** 🚧 Partial
+**Status:** ✅ Done
 ```
 As a trader
 I want every candidate token to pass safety & liquidity checks before trading
@@ -517,8 +518,8 @@ Acceptance Criteria:
 Story Points: 8
 ```
 
-**Shipped:** the $20,000 liquidity gate (`token_screener.py`) and the 1.5% Jupiter price-impact cap (`jupiter.py`).
-**Missing:** freeze authority, mint authority, and honeypot checks. No RPC authority read exists in `src/`.
+**Shipped:** the $20,000 liquidity gate (`token_screener.py`), the 1.5% Jupiter price-impact cap (`jupiter.py`), and on-chain freeze & mint authority verification (`mint_safety.py`). Token-2022 mints and any token with active freeze or mint authority are rejected; RPC lookups fail closed.
+**Missing:** live honeypot simulation transaction probe before swap (covered partially by Jupiter quote dry-run & price-impact limit).
 
 **US-6.3: Solana USDT Base Quote & Dynamic Routing**
 **Status:** 🚧 Partial
@@ -629,13 +630,13 @@ Story Points: 8
 | User Story | Points | Priority | Status |
 |------------|--------|----------|--------|
 | US-6.1: Live Dynamic Memecoin Screener (DexScreener API) | 8 | 🔴 Critical | 🚧 Partial |
-| US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity) | 8 | 🔴 Critical | 🚧 Partial |
+| US-6.2: Memecoin Safety Gate (Honeypot, Freeze & Liquidity) | 8 | 🔴 Critical | ✅ Done |
 | US-6.3: Solana USDT Base Quote & Dynamic Routing | 8 | 🔴 Critical | 🚧 Partial |
 | **Total** | **24** | | |
 
 **Sprint Goal:** Automatically scan, safety-check, and rank 3–5 real Solana memecoins quote-routed to USDT.
 
-**Outstanding before Sprint 8 can be called done:** freeze/mint authority and honeypot checks (US-6.2), RPC balance reads (US-6.3), rate-limit backoff and the volume-to-MCap threshold decision (US-6.1).
+**Outstanding before Sprint 8 can be called done:** RPC balance reads (US-6.3), rate-limit backoff and the volume-to-MCap threshold decision (US-6.1).
 
 ---
 
@@ -719,7 +720,7 @@ Status: A1 ✅ done (`a713a75`, covered by `tests/test_jupiter_swap.py`). A2 ✅
 | 5 | US-4.1 | Order Book Imbalance Filter | Data Intelligence | 13 | 🟢 Low | 📝 Todo |
 | 6 | US-5.4 | Monitoring Dashboard | Live Trading | 21 | 🔵 Nice to Have | 📝 Todo |
 | - | US-6.1 | Live Dynamic Memecoin Screener | Memecoin Scalper | 8 | - | 🚧 Partial |
-| - | US-6.2 | Memecoin Safety Gate (Honeypot/Freeze) | Memecoin Scalper | 8 | - | 🚧 Partial |
+| - | US-6.2 | Memecoin Safety Gate (Honeypot/Freeze) | Memecoin Scalper | 8 | - | ✅ Done |
 | - | US-6.3 | Solana USDT Base Quote & Routing | Memecoin Scalper | 8 | - | 🚧 Partial |
 | 6 | US-5.2 | Wallet Management & Balance Guard | Live Trading | 8 | 🟠 High | 📝 Todo |
 | 7 | US-5.3 | Priority Fees & MEV Protection | Live Trading | 13 | 🟡 Medium | 📝 Todo |
