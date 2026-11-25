@@ -2,6 +2,7 @@
 
 import os
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, Any
 
 
@@ -9,8 +10,6 @@ from typing import Dict, Any
 class TradingConfig:
     initial_capital: float = 20.0  # USD
     max_position_usd: float = 6.0  # 30% max ($6)
-    emergency_reserve: float = 4.0  # 20% ($4)
-    vault_reserve: float = 10.0  # 50% untouchable
 
     # Trading window (UTC)
     trading_start_utc: int = 9  # 09:00 UTC
@@ -19,7 +18,36 @@ class TradingConfig:
     # Risk limits
     daily_loss_limit_usd: float = 1.50  # 7.5% of capital
     max_consecutive_losses: int = 2
-    max_slippage_percent: float = 0.8  # Abort if slippage >0.8%
+
+
+class Stage(str, Enum):
+    PAPER = "paper"  # Simulated fills only
+    LIVE = "live"  # Real orders
+
+
+@dataclass
+class ExecutionConfig:
+    """Multi-token execution policy, shared by paper and live runs."""
+
+    slots: int = 3  # Concurrent position slots
+    reserve_pct: float = 20.0  # Capital held back, percent
+    slippage_pct: float = 1.2  # Max slippage per fill, percent
+    exit_poll_seconds: float = 4.0  # Exit monitor poll interval
+    stage: Stage = Stage.PAPER  # Paper or live
+    priority_fee_enabled: bool = False  # Pay Solana priority fees
+
+    def __post_init__(self):
+        self.stage = Stage(self.stage)
+        if self.slots < 1:
+            raise ValueError(f"execution slots must be >= 1, got {self.slots}")
+        if not 0 <= self.reserve_pct < 100:
+            raise ValueError(f"reserve_pct must be in [0, 100), got {self.reserve_pct}")
+        if not 0 < self.slippage_pct <= 5:
+            raise ValueError(f"slippage_pct must be in (0, 5], got {self.slippage_pct}")
+        if not 0.5 <= self.exit_poll_seconds <= 60:
+            raise ValueError(
+                f"exit_poll_seconds must be in [0.5, 60], got {self.exit_poll_seconds}"
+            )
 
 
 @dataclass
@@ -200,23 +228,29 @@ SIMULATION_CONFIG = {
 
 def apply_profile(profile: str = "default"):
     """Apply a named risk/strategy profile to the global config instances (in place)."""
-    global trading_config, strategy_config
+    global trading_config, strategy_config, execution_config
 
     if profile == "default":
         defaults_t = TradingConfig()
         defaults_s = StrategyConfig()
+        stage = execution_config.stage  # Live gate is operator-set, never a profile value
         trading_config.__dict__.update(defaults_t.__dict__)
         strategy_config.__dict__.update(defaults_s.__dict__)
+        execution_config.__dict__.update(ExecutionConfig().__dict__)
+        execution_config.stage = stage
         return
 
     if profile == "balanced":
         trading_config.max_position_usd = 8.0
-        trading_config.emergency_reserve = 3.0
         trading_config.daily_loss_limit_usd = 2.00
         trading_config.max_consecutive_losses = 4
-        trading_config.max_slippage_percent = 1.0
         trading_config.trading_start_utc = 8
         trading_config.trading_end_utc = 22
+        execution_config.slots = 3
+        execution_config.reserve_pct = 20.0
+        execution_config.slippage_pct = 1.35
+        execution_config.exit_poll_seconds = 4.0
+        execution_config.priority_fee_enabled = False
         strategy_config.rsi_oversold_min = 18
         strategy_config.rsi_oversold_max = 42
         strategy_config.min_band_width_percent = 1.5
@@ -254,12 +288,15 @@ def apply_profile(profile: str = "default"):
     if profile == "aggressive":
         # Trading config
         trading_config.max_position_usd = 10.0
-        trading_config.emergency_reserve = 2.0
         trading_config.daily_loss_limit_usd = 3.00
         trading_config.max_consecutive_losses = 5
-        trading_config.max_slippage_percent = 1.5
         trading_config.trading_start_utc = 0
         trading_config.trading_end_utc = 23
+        execution_config.slots = 3
+        execution_config.reserve_pct = 20.0
+        execution_config.slippage_pct = 1.5
+        execution_config.exit_poll_seconds = 3.0
+        execution_config.priority_fee_enabled = False
         # Strategy config
         strategy_config.rsi_oversold_min = 15
         strategy_config.rsi_oversold_max = 45
@@ -302,4 +339,5 @@ def apply_profile(profile: str = "default"):
 # Global config instances
 trading_config = TradingConfig()
 strategy_config = StrategyConfig()
+execution_config = ExecutionConfig()
 api_config = APIConfig()

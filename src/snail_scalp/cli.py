@@ -26,6 +26,7 @@ from dataclasses import asdict
 from snail_scalp.config import (
     trading_config,
     strategy_config,
+    execution_config,
     apply_profile,
     SIMULATION_CONFIG,
     PAIR_ADDRESS,
@@ -540,8 +541,11 @@ class TradingBot:
         print(f"Solana Snail Scalp Bot - {mode}")
         print("=" * 60)
         print(f"Capital: ${self.capital:.2f}")
-        print(f"Max Position: ${trading_config.max_position_usd:.2f} (30%)")
-        print(f"Emergency Reserve: ${trading_config.emergency_reserve:.2f} (20%)")
+        position_pct = (
+            trading_config.max_position_usd / self.capital * 100 if self.capital > 0 else 0.0
+        )
+        print(f"Max Position: ${trading_config.max_position_usd:.2f} ({position_pct:.0f}%)")
+        print(f"Emergency Reserve: {execution_config.reserve_pct:.0f}% of capital")
         print(f"Trading Window: {self.args.window_start:02d}:00-{self.args.window_end:02d}:00 UTC")
         print(f"Check Interval: {strategy_config.check_interval_seconds}s")
 

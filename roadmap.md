@@ -655,7 +655,7 @@ Recorded 2026-11-24. Execution order is deliberate: Phase A builds the shared sw
 
 **Phase A — Shared execution layer (do first; unblocks both stories)**
 
-Status: A1 ✅ done (`a713a75`, covered by `tests/test_jupiter_swap.py`). A2 not started.
+Status: A1 ✅ done (`a713a75`, covered by `tests/test_jupiter_swap.py`). A2 ✅ done, covered by `tests/test_execution_config.py`; B1 is next. A2 defines `execution_config`; B1 and C1 consume it.
 
 | # | Change | File | Done when |
 |---|--------|------|-----------|

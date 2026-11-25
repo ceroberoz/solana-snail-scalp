@@ -4,7 +4,11 @@ All notable changes to the Solana Snail Scalp Bot project.
 
 ## [Unreleased]
 
+### Added
+- **Execution policy config (Sprint 9 A2)**: new `ExecutionConfig` in `config.py` with `slots`, `reserve_pct`, `slippage_pct`, `exit_poll_seconds`, a `Stage` enum (`paper` or `live`), and a `priority_fee_enabled` toggle. Values load per profile and are validated on construction.
+
 ### Changed
+- **Config consolidation**: removed the dead `emergency_reserve`, `vault_reserve`, and `max_slippage_percent` fields from `TradingConfig`. The reserve is now `execution_config.reserve_pct`, and the startup banner derives its position and reserve percentages instead of hardcoding them.
 - **Status reconciliation**: the roadmap now marks US-6.1, US-6.2, and US-6.3 as partial, lists what shipped and what is missing per story, and records Phase A1 as done. Docs and the `--multi --live` refusal now say USDT/SOL instead of SOL/USDC. The package version is `2.3.0` in `pyproject.toml` and `__init__.py`.
 
 ### Fixed
